@@ -2,7 +2,7 @@
 // One transparent WebGL canvas, fixed behind the page content.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { buildMascot, FIGURE_BOUNDS } from './mascot.js?v=20261113b';
+import { buildMascot, FIGURE_BOUNDS } from './mascot.js?v=20261113c';
 
 const LIME = 0xb8ff2e;
 
@@ -308,9 +308,39 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
   const t0 = performance.now();
   let running = false, raf = 0, frames = 0, nextBlink = 2.5, blinkT = -1, lastT = 0;
 
+  // ---------- Face: expression state, glances and chatter ----------
+  const face = { eyes: 'pill', mouth: 'smile' };
+  let faceKey = '';
+  const glance = { x: 0, y: 0, tx: 0, ty: 0, next: 1 };
+  let talkUntil = 0, nextTalk = 5;
+  function applyFace(f) {
+    const key = f.eyes + f.mouth;
+    if (key === faceKey) return;
+    faceKey = key;
+    figures.forEach((fig) => fig.setFace(f));
+  }
+
   function pose(t) {
     const dt = Math.min(t - lastT, 0.05); lastT = t;
     rain.update(dt);
+
+    // Quick eye glances to random spots (like a person looking around)
+    if (t > glance.next) {
+      const wide = Math.random() < 0.3;
+      glance.tx = (Math.random() * 2 - 1) * (wide ? 0.09 : 0.05);
+      glance.ty = (Math.random() * 2 - 1) * 0.04;
+      glance.next = t + 0.6 + Math.random() * 1.8;
+    }
+    glance.x += (glance.tx - glance.x) * 0.3;
+    glance.y += (glance.ty - glance.y) * 0.3;
+
+    // Every few seconds the mouth chatters for a moment
+    if (t > nextTalk && anim.tossY === 0) { talkUntil = t + 1.1 + Math.random() * 0.8; nextTalk = t + 5 + Math.random() * 4; }
+    const talking = t < talkUntil && face.mouth === 'smile';
+    const mouthY = talking ? 0.45 + 0.75 * Math.abs(Math.sin(t * 13)) : 1;
+
+    // Touching the figure (phones) makes it beam
+    applyFace(touching && face.eyes === 'pill' ? { eyes: 'happy', mouth: 'grin' } : face);
     lookNow.x += (look.x - lookNow.x) * 0.07;
     lookNow.y += (look.y - lookNow.y) * 0.07;
     const idle = finePointer ? 0 : Math.sin(t * 0.7) * 0.25;
@@ -322,6 +352,7 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
       eyeScale = Math.max(0.08, Math.abs(Math.cos((blinkT / 0.16) * Math.PI)));
       if (blinkT > 0.16) { blinkT = -1; nextBlink = t + 2.5 + Math.random() * 3; eyeScale = 1; }
     }
+    if (blinkT < 0 && t > nextBlink - 0.01 && Math.random() < 0.002) nextBlink = t; // occasional double blink
     eyeScale = Math.min(eyeScale, 1 - anim.squint * 0.65);
     figures.forEach((f) => {
       f.root.rotation.y = (lookNow.x + idle) * 0.22 + anim.scroll * 0.5;
@@ -329,9 +360,10 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
       f.head.rotation.y = (lookNow.x + idle) * 0.45;
       f.head.rotation.x = lookNow.y * 0.28 - anim.scroll * 0.3 - Math.min(anim.tossY, 2) * 0.16;
       f.head.rotation.z = -lookNow.x * 0.06;
-      f.eyes.position.x = lookNow.x * 0.07;
-      f.eyes.position.y = 0.7 - lookNow.y * 0.04;
+      f.eyes.position.x = lookNow.x * 0.07 + glance.x;
+      f.eyes.position.y = 0.7 - lookNow.y * 0.04 + glance.y + Math.min(anim.tossY, 2) * 0.03;
       f.eyes.scale.y = eyeScale;
+      f.mouth.scale.y = mouthY;
       f.coin.rotation.y = Math.sin(t * 0.8) * 0.35 + anim.spin;
       f.coin.rotation.z = Math.sin(t * 0.5) * 0.05;
       f.coin.rotation.x = -0.15 + anim.flip;
@@ -408,8 +440,11 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
       .to(anim, { tossY: 0, duration: 0.7, ease: 'power2.in' }, 0.88)
       .to(anim, { arms: -0.07, duration: 0.1, ease: 'power2.out' }, 1.58)
       .to(anim, { arms: 0, duration: 0.5, ease: 'expo.out' }, 1.68)
-      .to(anim, { squint: 1, duration: 0.12, ease: 'power2.out' }, 1.58)
-      .to(anim, { squint: 0, duration: 0.5, ease: 'power2.out' }, 2.2);
+      // Expressions: surprised "O" on launch → money eyes $ $ in the air → big grin on the catch
+      .call(() => { face.mouth = 'o'; }, null, 0.15)
+      .call(() => { face.eyes = 'dollar'; }, null, 0.55)
+      .call(() => { face.mouth = 'grin'; }, null, 1.58)
+      .call(() => { face.eyes = 'pill'; face.mouth = 'smile'; }, null, 2.9);
   }
   function tossLoop() {
     gsap?.delayedCall(3.2 + Math.random() * 2, () => {

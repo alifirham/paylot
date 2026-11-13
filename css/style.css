@@ -302,6 +302,7 @@ main { position: relative; }
 /* Topographic contour lines, drifting slowly behind everything */
 .hero__contours {
   position: absolute;
+  z-index: -1;
   left: -20%; top: -10%;
   width: 140%; height: 120%;
   max-width: none;
@@ -409,7 +410,8 @@ main { position: relative; }
   line-height: .82;
   white-space: nowrap;
   overflow: clip;
-  padding-top: .03em;
+  padding: .03em 0 .16em;   /* room for the $ sign's tail below the baseline */
+  margin-bottom: -.16em;
   color: var(--accent);
 }
 .hero__num-stack {

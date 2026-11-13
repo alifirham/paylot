@@ -1,4 +1,4 @@
-import { TELEGRAM_URL, REBATE_PER_LOT } from './config.js?v=20261113b';
+import { TELEGRAM_URL, REBATE_PER_LOT } from './config.js?v=20261113c';
 
 const root = document.documentElement;
 const { gsap, ScrollTrigger, SplitText, Lenis } = window;
@@ -288,7 +288,7 @@ let coin = null;
 async function loadCoin() {
   if (staticCoin || reducedMotion || !webglAvailable() || (lowTier && !forceCoin)) return;
   try {
-    const { initCoin } = await import('./coin.js?v=20261113b');
+    const { initCoin } = await import('./coin.js?v=20261113c');
     coin = await initCoin({
       canvas,
       mobile: isMobileUA || innerWidth < 768,
