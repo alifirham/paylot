@@ -2,7 +2,7 @@
 // One transparent WebGL canvas, fixed behind the page content.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { buildMascot, FIGURE_BOUNDS } from './mascot.js';
+import { buildMascot, FIGURE_BOUNDS } from './mascot.js?v=20261113b';
 
 const LIME = 0xb8ff2e;
 
@@ -192,7 +192,7 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
   const rain = makeRain();
   A.scene.add(rain.group);
 
-  // Reveal mask (screen-space circle, drawn into the stencil buffer)
+  // Reveal mask (screen-space organic blob, drawn into the stencil buffer)
   const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
   const maskScene = new THREE.Scene();
   const mask = new THREE.Mesh(
@@ -204,8 +204,17 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
     }),
   );
   maskScene.add(mask);
-  const ring = new THREE.Mesh(new THREE.RingGeometry(0.985, 1, 96), new THREE.MeshBasicMaterial({ color: LIME, toneMapped: false, depthTest: false }));
-  maskScene.add(ring);
+  // Wobble the circle's edge so the reveal feels liquid rather than a hard circle
+  const maskPos = mask.geometry.attributes.position;
+  const SEG = maskPos.count - 2;
+  function wobble(t, amount) {
+    for (let i = 1; i < maskPos.count; i++) {
+      const a = ((i - 1) / SEG) * Math.PI * 2;
+      const k = 1 + amount * (0.09 * Math.sin(3 * a + t * 1.3) + 0.06 * Math.sin(5 * a - t * 2.1) + 0.035 * Math.sin(8 * a + t * 0.7));
+      maskPos.setXY(i, Math.cos(a) * k, Math.sin(a) * k);
+    }
+    maskPos.needsUpdate = true;
+  }
 
   // ---------- Fit figure to its DOM box ----------
   let W = 0, H = 0, unitPerPx = 0;
@@ -246,8 +255,11 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
   const look = { x: 0, y: 0 };          // target, -1..1
   const lookNow = { x: 0, y: 0 };
   const reveal = { x: W / 2, y: H / 2, tx: W / 2, ty: H / 2, r: 0, tr: 0 };
-  const REVEAL_R = mobile ? 110 : 150;
-  let autoReveal = false;
+  const REVEAL_R = mobile ? 100 : 150;
+  let autoReveal = false;   // intro sweep in progress
+  let wander = false;       // touch devices: the reveal drifts over the figure on its own
+  let touching = false;
+  let locked = false;       // "Tap to flip": whole figure switches to the lime version
 
   function overFigure(x, y) {
     const r = anchorRect;
@@ -258,8 +270,10 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
     // Head sits around 30% down the figure box
     look.x = THREE.MathUtils.clamp((x - (r.left + r.width / 2)) / (W * 0.4), -1, 1);
     look.y = THREE.MathUtils.clamp((y - (r.top + r.height * 0.3)) / (H * 0.5), -1, 1);
+    if (locked || autoReveal) return;
+    if (!finePointer && !overFigure(x, y)) return;   // a scroll swipe elsewhere doesn't steal the reveal
     reveal.tx = x; reveal.ty = y;
-    if (!autoReveal) reveal.tr = pressed && overFigure(x, y) ? REVEAL_R : 0;
+    reveal.tr = pressed && overFigure(x, y) ? REVEAL_R * (finePointer ? 1 : 1.2) : 0;
   }
 
   const cursorEl = document.querySelector('.cursor');
@@ -271,10 +285,15 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
     document.addEventListener('pointerleave', () => { reveal.tr = 0; });
   } else {
     // Touch: reveal follows the finger while it is on the figure
-    const onTouch = (e) => { const t = e.touches[0]; if (t) pointAt(t.clientX, t.clientY, true); };
+    const onTouch = (e) => {
+      const t = e.touches[0];
+      if (!t) return;
+      touching = overFigure(t.clientX, t.clientY);
+      pointAt(t.clientX, t.clientY, true);
+    };
     window.addEventListener('touchstart', onTouch, { passive: true });
     window.addEventListener('touchmove', onTouch, { passive: true });
-    window.addEventListener('touchend', () => { if (!autoReveal) reveal.tr = 0; }, { passive: true });
+    window.addEventListener('touchend', () => { touching = false; }, { passive: true });
     // Tilt to look around (only where no permission prompt is needed)
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission !== 'function') {
       window.addEventListener('deviceorientation', (e) => {
@@ -327,23 +346,31 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
     if (!place() && frames > 2) { stop(); return; }
     pose(t);
 
-    reveal.x += (reveal.tx - reveal.x) * 0.16;
-    reveal.y += (reveal.ty - reveal.y) * 0.16;
-    reveal.r += (reveal.tr - reveal.r) * 0.12;
+    const r = anchorRect;
+    if (locked) {
+      // Flood the whole figure from its centre
+      reveal.tx = r.left + r.width / 2; reveal.ty = r.top + r.height * 0.45;
+      reveal.tr = Math.hypot(W, H);
+    } else if (wander && !touching && !autoReveal) {
+      // Drift lazily over the head and coin, breathing in size
+      reveal.tx = r.left + r.width * (0.5 + 0.26 * Math.sin(t * 0.55));
+      reveal.ty = r.top + r.height * (0.38 + 0.16 * Math.sin(t * 0.83 + 1.2));
+      reveal.tr = REVEAL_R * (0.9 + 0.25 * Math.sin(t * 0.9));
+    }
+    const ease = locked ? 0.07 : 0.1;
+    reveal.x += (reveal.tx - reveal.x) * ease;
+    reveal.y += (reveal.ty - reveal.y) * ease;
+    reveal.r += (reveal.tr - reveal.r) * (locked ? 0.06 : 0.1);
 
     renderer.clear(true, true, true);
     renderer.render(A.scene, camera);
     if (reveal.r > 0.5) {
       const px = reveal.x - W / 2, py = H / 2 - reveal.y;
       mask.position.set(px, py, 0); mask.scale.setScalar(reveal.r);
-      ring.position.set(px, py, 0); ring.scale.setScalar(reveal.r);
-      ring.visible = false;
-      renderer.render(maskScene, ortho);     // erase + mark circle in stencil
+      wobble(t, Math.max(0, 1 - reveal.r / 900));
+      renderer.render(maskScene, ortho);     // erase + mark the blob in the stencil buffer
       renderer.clearDepth();
-      renderer.render(B.scene, camera);      // alt figure, only inside circle
-      ring.visible = true; mask.visible = false;
-      renderer.render(maskScene, ortho);     // thin lime outline
-      mask.visible = true;
+      renderer.render(B.scene, camera);      // alt figure, only inside the blob
     }
     frames++;
   }
@@ -407,9 +434,10 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
           reveal.tr = REVEAL_R * 0.9;
         }, 1.4)
         .to(reveal, { tx: () => anchorRect.left + anchorRect.width * 0.8, duration: 1.4, ease: 'power2.inOut' }, 1.5)
-        .add(() => { reveal.tr = 0; autoReveal = false; }, 2.9);
+        .add(() => { reveal.tr = 0; autoReveal = false; wander = !finePointer; }, 2.9);
     },
     setScroll(p) { anim.scroll = p; },
+    setLock(on) { locked = on; if (!on) { reveal.tr = 0; } },
     dispose,
   };
 }

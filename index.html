@@ -11,7 +11,27 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20261113b">
+  <!-- Critical preloader styles live here so a stale cached stylesheet can never show it unstyled -->
+  <style>
+    .preloader { display: none; }
+    .has-preloader body { overflow: hidden; }
+    .has-preloader .preloader { display: block; position: fixed; inset: 0; z-index: 500; pointer-events: none; }
+    .preloader__panel { position: absolute; inset: 0; background: #B8FF2E; clip-path: inset(0% 0% 0% 0%); }
+    .preloader__mark { position: absolute; left: 50%; top: 14svh; width: 56px; height: 56px; margin-left: -28px; }
+    .preloader__mark path { stroke: #0C0E10; fill: none; stroke-width: 8.5; }
+    .preloader__mark .tip { fill: #0C0E10; stroke: none; }
+    .preloader__num {
+      position: absolute; left: 0; right: 0; top: 50%; margin-top: -.45em; text-align: center;
+      font-family: Anton, Impact, sans-serif; font-size: var(--num, 70vw); line-height: .82;
+      white-space: nowrap; color: #0C0E10; font-variant-numeric: tabular-nums; opacity: 0;
+    }
+    .preloader__caption {
+      position: absolute; left: 0; right: 0; bottom: 9svh; margin: 0; text-align: center;
+      font: 600 12px/1.4 Inter, system-ui, sans-serif; letter-spacing: .22em; text-transform: uppercase; color: #0C0E10;
+    }
+    .has-preloader .hero__num-solid, .has-preloader .hero__num-outline { visibility: hidden !important; }
+  </style>
   <script>
     document.documentElement.className = 'js';
     // Show the $0 → $14 preloader once per browser session (skipped for reduced motion)
@@ -38,9 +58,15 @@
 </head>
 <body>
   <div class="preloader" aria-hidden="true">
-    <div class="preloader__panel"></div>
-    <div class="display preloader__num"><span class="preloader__count">$0</span></div>
-    <p class="preloader__caption">Self rebate · per eligible lot</p>
+    <div class="preloader__panel">
+      <svg class="preloader__mark" viewBox="0 0 64 64">
+        <path class="stem" d="M15.5 5.75 V58"/>
+        <path class="bowl" d="M15.5 10 H34 A13.5 13.5 0 0 1 34 37 H32.95"/>
+        <path class="tip" d="M32.95 28.5 L22.95 37 L32.95 45.5 Z"/>
+      </svg>
+      <p class="preloader__caption">Loading your rebate</p>
+    </div>
+    <div class="preloader__num"><span class="preloader__count">$0</span></div>
   </div>
   <a class="skip-link" href="#main">Skip to content</a>
   <canvas id="webgl" aria-hidden="true"></canvas>
@@ -81,6 +107,7 @@
     <!-- 5.1 HERO -->
     <section class="hero" id="hero" aria-labelledby="hero-title">
       <div class="hero__glow" aria-hidden="true"></div>
+      <img class="hero__contours" src="assets/contours.svg" alt="" aria-hidden="true" width="1000" height="1000">
       <div class="container hero__head">
         <h1 class="display hero__title" id="hero-title"><span class="hero__l1">Get paid</span> <span class="hero__l2">every <span class="accent">lot.</span></span></h1>
         <p class="hero__sub" data-reveal>Self rebate of <strong class="accent" data-rebate>$14</strong> per eligible lot, on top of your trading.</p>
@@ -98,6 +125,9 @@
       <!-- The 3D figure is drawn over this box. The image is the no-WebGL fallback. -->
       <div class="hero__figure" data-figure-anchor>
         <img class="figure-static" src="assets/mascot.png" alt="" width="600" height="720">
+        <button class="hero__flip" type="button" aria-pressed="false" data-flip hidden>
+          <span class="hero__flip-icon" aria-hidden="true"></span><span class="hero__flip-label">Tap to flip</span>
+        </button>
       </div>
 
       <div class="hero__bottom">
@@ -190,6 +220,6 @@
     <a class="btn btn--primary" data-telegram href="#" target="_blank" rel="noopener" tabindex="-1">Join on Telegram</a>
   </div>
 
-  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/main.js?v=20261113b"></script>
 </body>
 </html>

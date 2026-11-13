@@ -5,7 +5,7 @@
 //   'alt'   : lime body, black visor, ^ ^ eyes  (revealed under the cursor)
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { buildCoin, symbolShapes } from './coin.js';
+import { buildCoin, symbolShapes } from './coin.js?v=20261113b';
 
 const LIME = 0xb8ff2e;
 

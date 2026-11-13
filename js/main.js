@@ -1,4 +1,4 @@
-import { TELEGRAM_URL, REBATE_PER_LOT } from './config.js';
+import { TELEGRAM_URL, REBATE_PER_LOT } from './config.js?v=20261113b';
 
 const root = document.documentElement;
 const { gsap, ScrollTrigger, SplitText, Lenis } = window;
@@ -119,28 +119,43 @@ async function runPreloader() {
   const numEl = pre.querySelector('.preloader__num');
   const countEl = pre.querySelector('.preloader__count');
   const caption = pre.querySelector('.preloader__caption');
+  const mark = pre.querySelector('.preloader__mark');
   lenis?.stop();
   window.scrollTo(0, 0);
   try { await Promise.race([document.fonts.ready, wait(1500)]); } catch (_) { /* ignore */ }
 
-  gsap.from([numEl, caption], { opacity: 0, y: 30, duration: 0.6, ease: 'power3.out', stagger: 0.1 });
-  const o = { v: 0 };
-  await gsap.to(o, {
-    v: REBATE_PER_LOT, duration: 1.6, ease: 'power3.inOut',
-    onUpdate: () => { countEl.textContent = fmtUSD(o.v); },
+  // 1. The P-arrow symbol draws itself on the lime screen
+  const strokes = mark.querySelectorAll('.stem, .bowl');
+  strokes.forEach((path) => {
+    const len = path.getTotalLength();
+    gsap.set(path, { strokeDasharray: len, strokeDashoffset: len });
   });
-  await wait(150);
+  const intro = gsap.timeline();
+  intro.to(strokes, { strokeDashoffset: 0, duration: 0.7, ease: 'power3.inOut', stagger: 0.15 })
+    .from(mark.querySelector('.tip'), { scale: 0, transformOrigin: '30% 50%', duration: 0.5, ease: 'expo.out' }, '-=0.15')
+    .from(caption, { opacity: 0, y: 12, duration: 0.5, ease: 'power3.out' }, 0.2)
+    .fromTo(numEl, { yPercent: 40, opacity: 0 }, { yPercent: 0, opacity: 1, duration: 0.7, ease: 'expo.out' }, 0.3);
 
-  // FLIP: measure where the hero $14 lives and fly there
+  // 2. Count $0 → $14
+  const o = { v: 0 };
+  intro.to(o, {
+    v: REBATE_PER_LOT, duration: 1.5, ease: 'power3.inOut',
+    onUpdate: () => { countEl.textContent = fmtUSD(o.v); },
+  }, 0.5);
+  await intro;
+  await wait(120);
+
+  // 3. FLIP: the number flies into the hero (turning lime) while the lime panel lifts away
   const target = document.querySelector('.hero__num-solid > span').getBoundingClientRect();
   const from = countEl.getBoundingClientRect();
   const sc = target.height / from.height;
   const dx = (target.left + target.width / 2) - (from.left + from.width / 2);
   const dy = (target.top + target.height / 2) - (from.top + from.height / 2);
   const tl = gsap.timeline();
-  tl.to(caption, { opacity: 0, y: -20, duration: 0.3, ease: 'power2.in' }, 0)
-    .to(panel, { clipPath: 'inset(0% 0% 100% 0%)', duration: 1.1, ease: 'expo.inOut' }, 0.1)
-    .to(numEl, { x: dx, y: dy, scale: sc, duration: 1.1, ease: 'expo.inOut' }, 0.1);
+  tl.to([caption, mark], { opacity: 0, y: -24, duration: 0.35, ease: 'power2.in', stagger: 0.05 }, 0)
+    .to(panel, { clipPath: 'inset(0% 0% 100% 0%)', duration: 1.1, ease: 'expo.inOut' }, 0.15)
+    .to(numEl, { x: dx, y: dy, scale: sc, duration: 1.1, ease: 'expo.inOut' }, 0.15)
+    .to(numEl, { color: '#B8FF2E', duration: 0.5, ease: 'power1.out' }, 0.45);
   await tl;
   gsap.set(heroNums, { visibility: 'visible' });
   pre.remove();
@@ -212,6 +227,13 @@ async function heroIntro() {
   });
 }
 
+// ---------- Contour lines: slow drift + scroll parallax ----------
+const contours = document.querySelector('.hero__contours');
+if (contours && hasGSAP && !reducedMotion) {
+  gsap.to(contours, { rotation: 6, xPercent: -4, yPercent: 3, duration: 18, ease: 'sine.inOut', yoyo: true, repeat: -1 });
+  gsap.to(contours, { y: () => innerHeight * 0.35, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
+}
+
 let introDone;
 const introReady = new Promise((r) => { introDone = r; });
 
@@ -266,7 +288,7 @@ let coin = null;
 async function loadCoin() {
   if (staticCoin || reducedMotion || !webglAvailable() || (lowTier && !forceCoin)) return;
   try {
-    const { initCoin } = await import('./coin.js');
+    const { initCoin } = await import('./coin.js?v=20261113b');
     coin = await initCoin({
       canvas,
       mobile: isMobileUA || innerWidth < 768,
@@ -277,6 +299,19 @@ async function loadCoin() {
       await introReady;            // wait for the preloader to land first
       root.classList.add('webgl-on');
       coin.intro();
+      // "Tap to flip": lock the hidden lime version on / off
+      const flip = document.querySelector('[data-flip]');
+      if (flip) {
+        flip.querySelector('.hero__flip-label').textContent = finePointer ? 'Click to flip' : 'Tap to flip';
+        flip.hidden = false;
+        gsap?.from(flip, { opacity: 0, x: 20, duration: 0.8, ease: 'expo.out', delay: 2.2 });
+        flip.addEventListener('click', () => {
+          const on = flip.getAttribute('aria-pressed') !== 'true';
+          flip.setAttribute('aria-pressed', String(on));
+          flip.querySelector('.hero__flip-label').textContent = on ? 'Flip back' : (finePointer ? 'Click to flip' : 'Tap to flip');
+          coin.setLock(on);
+        });
+      }
     }
   } catch (err) {
     console.warn('3D coin unavailable, using static coin.', err);

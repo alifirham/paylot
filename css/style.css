@@ -299,6 +299,63 @@ main { position: relative; }
   pointer-events: none;
 }
 
+/* Topographic contour lines, drifting slowly behind everything */
+.hero__contours {
+  position: absolute;
+  left: -20%; top: -10%;
+  width: 140%; height: 120%;
+  max-width: none;
+  object-fit: cover;
+  opacity: .13;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(ellipse at 60% 55%, #000 25%, transparent 75%);
+  mask-image: radial-gradient(ellipse at 60% 55%, #000 25%, transparent 75%);
+  will-change: transform;
+}
+
+/* "Tap to flip" — locks the hidden lime version of the figure */
+.hero__flip {
+  position: absolute;
+  right: -4%;
+  top: 12%;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px 0 8px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 100px;
+  background: rgba(12, 14, 16, .55);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: var(--text);
+  font: 600 11px/1 var(--font-body);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.hero__flip[hidden] { display: none; }
+.hero__flip-icon {
+  position: relative;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.hero__flip-icon::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  animation: flip-ping 1.8s var(--ease-out) infinite;
+}
+@keyframes flip-ping { from { transform: scale(.7); opacity: 1; } to { transform: scale(1.35); opacity: 0; } }
+.hero__flip[aria-pressed="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.hero__flip[aria-pressed="true"] .hero__flip-icon { background: var(--bg); }
+@media (min-width: 1024px) { .hero__flip { right: -8%; top: 36%; } }
+
 /* Headline (above the number) */
 .hero__head { position: relative; z-index: 2; }
 .hero__title {
@@ -531,50 +588,6 @@ main { position: relative; }
 .js [data-reveal] { opacity: 0; }
 
 /* =========================================================
-   Preloader ($0 → $14), first visit of the session only
-   ========================================================= */
-.preloader { display: none; }
-.has-preloader body { overflow: hidden; }
-.has-preloader .preloader {
-  display: block;
-  position: fixed;
-  inset: 0;
-  z-index: 500;
-  pointer-events: none;
-}
-.preloader__panel {
-  position: absolute;
-  inset: 0;
-  background: var(--bg);
-  clip-path: inset(0% 0% 0% 0%);
-}
-.preloader__num {
-  position: absolute;
-  left: 0; right: 0;
-  top: 50%;
-  margin-top: -.45em;
-  text-align: center;
-  font-size: var(--num);
-  line-height: .82;
-  white-space: nowrap;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-.preloader__caption {
-  position: absolute;
-  left: 0; right: 0;
-  bottom: 8svh;
-  margin: 0;
-  text-align: center;
-  font-size: 12px;
-  letter-spacing: .2em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-/* Hide the hero $14 until the preloader number lands on it */
-.has-preloader .hero__num-solid, .has-preloader .hero__num-outline { visibility: hidden !important; }
-
-/* =========================================================
    Sticky Telegram bar (mobile)
    ========================================================= */
 .sticky-cta {
@@ -680,7 +693,7 @@ html.lenis, html.lenis body { height: auto; }
    Reduced motion
    ========================================================= */
 @media (prefers-reduced-motion: reduce) {
-  .ticker__track, .hero__scroll::after { animation: none !important; }
+  .ticker__track, .hero__scroll::after, .hero__flip-icon::after { animation: none !important; }
   *, *::before, *::after {
     transition-duration: .01ms !important;
     animation-duration: .01ms !important;
