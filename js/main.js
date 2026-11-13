@@ -86,33 +86,61 @@ matchMedia('(min-width: 900px)').addEventListener('change', (e) => {
 });
 
 // ---------- Hero intro ----------
-const heroTitle = document.querySelector('.hero__title');
+const heroTitles = document.querySelectorAll('.hero__title');   // solid + outline copy
 const heroReveals = document.querySelectorAll('.hero [data-reveal]');
 
 function showWithoutMotion() {
-  heroTitle.style.visibility = 'visible';
+  heroTitles.forEach((t) => { t.style.visibility = 'visible'; });
   heroReveals.forEach((el) => { el.style.opacity = 1; });
 }
 
 async function heroIntro() {
   if (!hasGSAP) return showWithoutMotion();
   if (reducedMotion) {
-    gsap.set(heroTitle, { visibility: 'visible', opacity: 0 });
-    gsap.to([heroTitle, ...heroReveals], { opacity: 1, duration: 0.8, ease: 'power1.out', stagger: 0.1 });
+    gsap.set(heroTitles, { visibility: 'visible', opacity: 0 });
+    gsap.to([...heroTitles, ...heroReveals], { opacity: 1, duration: 0.8, ease: 'power1.out', stagger: 0.1 });
     return;
   }
   try { await document.fonts.ready; } catch (_) { /* ignore */ }
-  const split = SplitText.create(heroTitle, { type: 'lines,chars', mask: 'lines', linesClass: 'line' });
-  gsap.set(heroTitle, { visibility: 'visible' });
+  // Split both copies the same way so they animate in lock-step.
+  // Each line (.hero__l1 / .hero__l2) clips its letters, acting as the mask.
+  const chars = [...heroTitles].map((t) => SplitText.create(t, { type: 'chars', aria: t.id ? 'auto' : 'none' }).chars);
+  gsap.set(heroTitles, { visibility: 'visible' });
   const tl = gsap.timeline();
-  tl.from(split.chars, { yPercent: 110, duration: 1.2, ease: 'expo.out', stagger: 0.03 })
-    .fromTo(heroReveals, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 1, ease: 'power4.out', stagger: 0.1 }, '-=0.8');
+  chars.forEach((c) => tl.from(c, { yPercent: 115, duration: 1.3, ease: 'expo.out', stagger: 0.03 }, 0));
+  tl.fromTo(heroReveals, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 1, ease: 'power4.out', stagger: 0.1 }, 0.6);
+
+  // Scroll: the two title lines split apart, copy fades, figure turns
+  gsap.timeline({
+    scrollTrigger: {
+      trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true,
+      onUpdate: (self) => coin?.setScroll(self.progress),
+    },
+  })
+    .to('.hero__l1', { xPercent: -28, ease: 'none' }, 0)
+    .to('.hero__l2', { xPercent: 28, ease: 'none' }, 0)
+    .to('.hero__bottom', { opacity: 0, y: -80, ease: 'none' }, 0)
+    .to('.ticker', { yPercent: -120, ease: 'none' }, 0);
 }
 
 // Safety net: never leave the hero hidden if something fails
 setTimeout(() => {
-  if (getComputedStyle(heroTitle).visibility === 'hidden') showWithoutMotion();
+  if (getComputedStyle(heroTitles[0]).visibility === 'hidden') showWithoutMotion();
 }, 4000);
+
+// ---------- Custom cursor (desktop only) ----------
+if (finePointer && !reducedMotion && hasGSAP) {
+  const cursor = document.querySelector('.cursor');
+  root.classList.add('has-cursor');
+  const xTo = gsap.quickTo(cursor, 'x', { duration: 0.35, ease: 'power3.out' });
+  const yTo = gsap.quickTo(cursor, 'y', { duration: 0.35, ease: 'power3.out' });
+  window.addEventListener('pointermove', (e) => {
+    xTo(e.clientX); yTo(e.clientY);
+    cursor.classList.toggle('is-link', Boolean(e.target.closest('a, button, [role="button"]')));
+  }, { passive: true });
+  document.addEventListener('pointerleave', () => gsap.to(cursor, { opacity: 0, duration: 0.3 }));
+  document.addEventListener('pointerenter', () => gsap.to(cursor, { opacity: 1, duration: 0.3 }));
+}
 
 // ---------- 3D coin (loaded after first paint) ----------
 const canvas = document.getElementById('webgl');
@@ -142,7 +170,7 @@ async function loadCoin() {
     });
     if (coin) {
       root.classList.add('webgl-on');
-      coin.drop();
+      coin.intro();
     }
   } catch (err) {
     console.warn('3D coin unavailable, using static coin.', err);

@@ -261,95 +261,240 @@ body.menu-open { overflow: hidden; }
 }
 
 /* =========================================================
-   WebGL canvas (one renderer for the whole page)
+   WebGL canvas (one transparent renderer for the whole page)
+   Stacking order: solid hero title (0) < canvas (1) < everything else (2+)
    ========================================================= */
 #webgl {
   position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
-  z-index: 0;
+  z-index: 1;
   pointer-events: none;
   opacity: 0;
   transition: opacity .8s var(--ease-out);
 }
 .webgl-on #webgl { opacity: 1; }
-main, .footer { position: relative; z-index: 1; }
+main { position: relative; }
+.section, .footer { position: relative; z-index: 2; }
 
 /* =========================================================
    Hero
    ========================================================= */
 .hero {
   position: relative;
-  min-height: 100svh;
   display: flex;
-  align-items: center;
-  padding: calc(var(--nav-h) + 24px) 0 64px;
-  overflow: hidden;
+  flex-direction: column;
+  padding-top: calc(var(--nav-h) + 8px);
+  overflow: clip;
 }
-.hero__copy { position: relative; z-index: 2; }
-.hero__title { margin-bottom: 24px; }
+.hero__glow {
+  position: absolute;
+  left: 50%;
+  bottom: -10%;
+  width: 120vmax;
+  height: 90vmax;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(184, 255, 46, .16), rgba(184, 255, 46, .05) 45%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Giant two-line title. The solid copy sits BEHIND the 3D figure,
+   the outline copy sits IN FRONT of it, so the figure looks layered in the type. */
+.hero__type { position: relative; }
+.hero__title {
+  font-size: min(calc((100vw - 2 * var(--gutter)) / 3.9), 30svh);
+  line-height: .86;
+  position: relative;
+  z-index: 0;
+}
+.hero__l1, .hero__l2 {
+  display: block;
+  overflow: clip;
+  white-space: nowrap;
+  padding-top: .04em;
+  will-change: transform;
+}
+.hero__l2 { text-align: right; }
+.hero__title--outline {
+  position: absolute;
+  inset: 0 var(--gutter);
+  z-index: 2;
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgba(255, 255, 255, .85);
+  pointer-events: none;
+  user-select: none;
+}
+.hero__title--outline .accent { color: transparent; -webkit-text-stroke-color: var(--accent); }
+
+/* Box the 3D figure is fitted to.
+   Mobile: in the flow, overlapping the title above and the copy below. */
+.hero__figure {
+  position: relative;
+  z-index: 1;
+  align-self: center;
+  width: min(86vw, 48svh, 520px);
+  aspect-ratio: 3 / 3.6;
+  margin-top: -6%;
+  margin-bottom: -20%;
+  pointer-events: none;
+}
+.figure-static {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: opacity .6s var(--ease-out);
+}
+.webgl-on .figure-static { opacity: 0; }
+
+/* Copy over a dark scrim (pinned to the bottom on desktop) */
+.hero__bottom {
+  position: relative;
+  z-index: 3;
+  padding: 56px 0 28px;
+  background: linear-gradient(to bottom, transparent, rgba(12, 14, 16, .82) 45%, var(--bg));
+  pointer-events: none;
+}
+.hero__bottom-inner {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+.hero__bottom a { pointer-events: auto; }
 .hero__sub {
-  max-width: 30ch;
-  font-size: 18px;
+  max-width: 32ch;
+  font-size: 17px;
   line-height: 1.5;
   color: var(--text-2);
-  margin-bottom: 28px;
+  margin-bottom: 18px;
 }
 .hero__sub strong { font-weight: 600; }
 .hero__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 10px;
+  margin-bottom: 14px;
 }
 .fine {
   max-width: 46ch;
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--muted);
   margin: 0;
 }
-
-/* Coin anchor: the 3D coin is drawn exactly over this box */
-.hero__coin {
-  position: absolute;
-  z-index: 1;
-  top: calc(var(--nav-h) + 8px);
-  right: -10vw;
-  width: min(74vw, 340px);
-  aspect-ratio: 1;
-  pointer-events: none;
+.hero__meta {
+  display: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
-.coin-static {
-  width: 100%;
-  height: 100%;
-  filter: drop-shadow(0 30px 60px rgba(0, 0, 0, .6));
-  transition: opacity .6s var(--ease-out);
+.hero__hint-touch { display: none; }
+@media (hover: none) {
+  .hero__hint-fine { display: none; }
+  .hero__hint-touch { display: inline; }
 }
-.webgl-on .coin-static { opacity: 0; }
+.hero__scroll { display: inline-flex; align-items: center; gap: 10px; color: var(--text); }
+.hero__scroll::after {
+  content: '';
+  width: 1px; height: 36px;
+  background: linear-gradient(var(--accent), transparent);
+  animation: scrollcue 1.8s var(--ease-out) infinite;
+  transform-origin: top;
+}
+@keyframes scrollcue { 0% { transform: scaleY(0); } 60% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
 
 @media (max-width: 599px) {
-  .hero { align-items: flex-end; padding-top: calc(var(--nav-h) + min(64vw, 300px)); }
-  .hero__actions .btn { flex: 1 1 100%; }
+  .hero__actions .btn { flex: 1 1 100%; min-height: 48px; }
 }
 @media (min-width: 600px) {
-  .hero__coin { right: -4vw; width: 46vw; max-width: 420px; }
+  .hero__meta { display: flex; }
 }
 @media (min-width: 1024px) {
-  .hero__sub { font-size: 20px; }
-  .hero__coin {
-    top: 50%;
-    right: 3vw;
-    width: 32vw;
-    max-width: 560px;
-    transform: translateY(-50%);
+  .hero { display: block; min-height: 100svh; }
+  .hero__type { margin-top: 2svh; }
+  .hero__figure {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: min(38vw, 66svh, 640px);
+    margin: 0;
+    transform: translateX(-50%);
   }
+  .hero__bottom {
+    position: absolute; left: 0; right: 0; bottom: 44px; padding: 140px 0 20px;
+    background: linear-gradient(to top, var(--bg), rgba(12, 14, 16, .55) 35%, transparent 70%);
+  }
+  .hero__sub { font-size: 19px; }
+}
+
+/* Ticker strip */
+.ticker {
+  position: relative;
+  margin: 0 -5%;
+  z-index: 4;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: var(--accent);
+  color: var(--bg);
+  transform: rotate(-1.2deg);
+  transform-origin: center;
+}
+.ticker__track { display: flex; width: max-content; animation: ticker 28s linear infinite; }
+.ticker__group { display: flex; align-items: center; gap: 22px; padding-right: 22px; }
+.ticker__group span {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.ticker__group b { font-weight: 400; }
+.ticker__group img { width: 22px; height: 22px; filter: brightness(0); }
+@keyframes ticker { to { transform: translateX(-50%); } }
+@media (min-width: 1024px) {
+  .ticker { position: absolute; left: 0; right: 0; bottom: 0; }
 }
 
 /* Start states for JS-driven reveals (only when JS runs) */
 .js .hero__title { visibility: hidden; }
 .js [data-reveal] { opacity: 0; }
+
+/* =========================================================
+   Custom cursor (desktop only)
+   ========================================================= */
+.cursor { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .has-cursor, .has-cursor a, .has-cursor button { cursor: none; }
+  .has-cursor .cursor {
+    display: block;
+    position: fixed;
+    left: 0; top: 0;
+    z-index: 300;
+    width: 10px; height: 10px;
+    margin: -5px 0 0 -5px;
+    border-radius: 50%;
+    background: var(--accent);
+    pointer-events: none;
+    transition: width .4s var(--ease-out), height .4s var(--ease-out), margin .4s var(--ease-out), background-color .3s, border-color .3s;
+    border: 1.5px solid transparent;
+  }
+  .has-cursor .cursor.is-link {
+    width: 54px; height: 54px; margin: -27px 0 0 -27px;
+    background: rgba(184, 255, 46, .12);
+    border-color: var(--accent);
+  }
+  .has-cursor .cursor.is-figure { width: 0; height: 0; margin: 0; }
+}
 
 /* =========================================================
    Lenis smooth scroll
@@ -410,6 +555,7 @@ html.lenis, html.lenis body { height: auto; }
    Reduced motion
    ========================================================= */
 @media (prefers-reduced-motion: reduce) {
+  .ticker__track, .hero__scroll::after { animation: none !important; }
   *, *::before, *::after {
     transition-duration: .01ms !important;
     animation-duration: .01ms !important;

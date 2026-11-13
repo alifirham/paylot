@@ -31,6 +31,7 @@
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <canvas id="webgl" aria-hidden="true"></canvas>
+  <div class="cursor" aria-hidden="true"></div>
 
   <!-- ============ NAV ============ -->
   <header class="nav" id="top">
@@ -66,18 +67,35 @@
   <main id="main">
     <!-- 5.1 HERO -->
     <section class="hero" id="hero" aria-labelledby="hero-title">
-      <div class="container hero__inner">
-        <div class="hero__copy">
-          <h1 class="display hero__title" id="hero-title">Get paid <br>every <span class="accent">lot.</span></h1>
-          <p class="hero__sub" data-reveal>Self rebate of <strong class="accent" data-rebate>$14</strong> per eligible lot, on top of your trading.</p>
-          <div class="hero__actions" data-reveal>
-            <a class="btn btn--outline" href="#calculator">Calculate Your Rebate</a>
-            <a class="btn btn--primary" data-telegram href="#" target="_blank" rel="noopener">Join on Telegram</a>
+      <div class="hero__glow" aria-hidden="true"></div>
+      <div class="container hero__type">
+        <h1 class="display hero__title" id="hero-title"><span class="hero__l1">Get paid</span> <span class="hero__l2">every <span class="accent">lot.</span></span></h1>
+        <div class="display hero__title hero__title--outline" aria-hidden="true"><span class="hero__l1">Get paid</span> <span class="hero__l2">every <span class="accent">lot.</span></span></div>
+      </div>
+
+      <!-- The 3D figure is drawn over this box. The image is the no-WebGL fallback. -->
+      <div class="hero__figure" data-figure-anchor>
+        <img class="figure-static" src="assets/mascot.png" alt="" width="600" height="720">
+      </div>
+
+      <div class="hero__bottom">
+        <div class="container hero__bottom-inner">
+          <div class="hero__copy">
+            <p class="hero__sub" data-reveal>Self rebate of <strong class="accent" data-rebate>$14</strong> per eligible lot, on top of your trading.</p>
+            <div class="hero__actions" data-reveal>
+              <a class="btn btn--outline" href="#calculator">Calculate Your Rebate</a>
+              <a class="btn btn--primary" data-telegram href="#" target="_blank" rel="noopener">Join on Telegram</a>
+            </div>
+            <p class="fine" data-reveal>Offer terms, eligibility and payment details must be confirmed with our admin on Telegram.</p>
           </div>
-          <p class="fine" data-reveal>Offer terms, eligibility and payment details must be confirmed with our admin on Telegram.</p>
+          <p class="hero__meta" data-reveal aria-hidden="true"><span class="hero__hint-fine">Hover the figure</span><span class="hero__hint-touch">Touch the figure</span><span class="hero__scroll">Scroll</span></p>
         </div>
-        <div class="hero__coin" data-coin-anchor="hero">
-          <img class="coin-static" src="assets/coin.svg" alt="" width="512" height="512">
+      </div>
+
+      <div class="ticker" aria-hidden="true">
+        <div class="ticker__track">
+          <div class="ticker__group"><span>Get paid every lot</span><img src="assets/symbol.svg" alt="" width="28" height="28"><span><b data-rebate>$14</b> per eligible lot</span><img src="assets/symbol.svg" alt="" width="28" height="28"><span>Self rebate</span><img src="assets/symbol.svg" alt="" width="28" height="28"></div>
+          <div class="ticker__group"><span>Get paid every lot</span><img src="assets/symbol.svg" alt="" width="28" height="28"><span><b data-rebate>$14</b> per eligible lot</span><img src="assets/symbol.svg" alt="" width="28" height="28"><span>Self rebate</span><img src="assets/symbol.svg" alt="" width="28" height="28"></div>
         </div>
       </div>
     </section>
