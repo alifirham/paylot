@@ -146,9 +146,51 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
     scene.add(pivot);
     return { scene, pivot, lime, ...fig };
   }
+
+  // ---------- Coin rain: 14 small coins falling behind the figure ----------
+  function makeRain(count = 14) {
+    const geo = new THREE.CylinderGeometry(1, 1, 0.14, 32);
+    const side = new THREE.MeshPhysicalMaterial({ color: 0x5a6068, metalness: 1, roughness: 0.3 });
+    const face = new THREE.MeshPhysicalMaterial({ color: 0x3a4030, emissive: LIME, emissiveIntensity: 0.12, metalness: 1, roughness: 0.3 });
+    const mesh = new THREE.InstancedMesh(geo, [side, face, face], count);
+    mesh.frustumCulled = false;
+    const group = new THREE.Group();
+    group.add(mesh);
+    const items = Array.from({ length: count }, (_, i) => ({
+      x: 0, y: 0, z: -4 - Math.random() * 5,
+      r: 0.1 + Math.random() * 0.12,
+      v: 0.35 + Math.random() * 0.5,
+      rx: Math.random() * 6, ry: Math.random() * 6,
+      sx: (Math.random() - 0.5) * 3, sy: 1 + Math.random() * 2.5,
+      seed: i / count,
+    }));
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(), p = new THREE.Vector3();
+    const halfH = (z) => Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * (camera.position.z - z);
+    function spawn(c, first) {
+      const hh = halfH(c.z), hw = hh * camera.aspect;
+      c.x = (Math.random() * 2 - 1) * hw * 0.95;
+      c.y = first ? (c.seed * 2 - 1) * hh : hh + c.r + Math.random() * hh * 0.6;
+    }
+    items.forEach((c) => spawn(c, true));
+    function update(dt) {
+      items.forEach((c, i) => {
+        c.y -= c.v * dt;
+        c.rx += c.sx * dt; c.ry += c.sy * dt;
+        if (c.y < -halfH(c.z) - c.r) spawn(c, false);
+        p.set(c.x, c.y, c.z);
+        q.setFromEuler(e.set(c.rx, c.ry, 0));
+        sc.setScalar(c.r);
+        mesh.setMatrixAt(i, m.compose(p, q, sc));
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+    return { group, update, respawnAll: () => items.forEach((c) => spawn(c, true)) };
+  }
   const A = makeScene('main');
   const B = makeScene('alt');
   const figures = [A, B];
+  const rain = makeRain();
+  A.scene.add(rain.group);
 
   // Reveal mask (screen-space circle, drawn into the stencil buffer)
   const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
@@ -172,6 +214,7 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
     renderer.setSize(W, H, false);
     camera.aspect = W / H;
     camera.updateProjectionMatrix();
+    rain?.respawnAll();
     unitPerPx = (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z) / H;
     ortho.left = -W / 2; ortho.right = W / 2; ortho.top = H / 2; ortho.bottom = -H / 2;
     ortho.updateProjectionMatrix();
@@ -180,7 +223,8 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
   window.addEventListener('resize', resize);
 
   const anchor = document.querySelector('[data-figure-anchor]');
-  const anim = { rise: 0, spin: 0, scroll: 0 };
+  const anim = { rise: 0, spin: 0, scroll: 0, tossY: 0, flip: 0, arms: 0, squint: 0 };
+
   let anchorRect = anchor.getBoundingClientRect();
 
   function place() {
@@ -188,9 +232,11 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
     anchorRect = r;
     const s = (r.width / FIGURE_BOUNDS.width) * unitPerPx;
     const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const baseY = -(cy - H / 2) * unitPerPx;
+    rain.group.position.y = window.scrollY * unitPerPx;   // rain scrolls away with the hero
     figures.forEach((f) => {
       f.pivot.scale.setScalar(s);
-      f.pivot.position.set((cx - W / 2) * unitPerPx, -(cy - H / 2) * unitPerPx - FIGURE_BOUNDS.centerY * s + anim.rise * s, 0);
+      f.pivot.position.set((cx - W / 2) * unitPerPx, baseY - FIGURE_BOUNDS.centerY * s + (anim.rise - anim.scroll * 1.4) * s, 0);
       f.lime.position.set(f.pivot.position.x - s * 1.6, f.pivot.position.y - s * 0.4, s * 3);
     });
     return r.bottom > -40 && r.top < H + 40;
@@ -245,6 +291,7 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
 
   function pose(t) {
     const dt = Math.min(t - lastT, 0.05); lastT = t;
+    rain.update(dt);
     lookNow.x += (look.x - lookNow.x) * 0.07;
     lookNow.y += (look.y - lookNow.y) * 0.07;
     const idle = finePointer ? 0 : Math.sin(t * 0.7) * 0.25;
@@ -256,17 +303,21 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
       eyeScale = Math.max(0.08, Math.abs(Math.cos((blinkT / 0.16) * Math.PI)));
       if (blinkT > 0.16) { blinkT = -1; nextBlink = t + 2.5 + Math.random() * 3; eyeScale = 1; }
     }
+    eyeScale = Math.min(eyeScale, 1 - anim.squint * 0.65);
     figures.forEach((f) => {
       f.root.rotation.y = (lookNow.x + idle) * 0.22 + anim.scroll * 0.5;
       f.root.position.y = Math.sin(t * 1.1) * 0.03;
       f.head.rotation.y = (lookNow.x + idle) * 0.45;
-      f.head.rotation.x = lookNow.y * 0.28 - anim.scroll * 0.3;
+      f.head.rotation.x = lookNow.y * 0.28 - anim.scroll * 0.3 - Math.min(anim.tossY, 2) * 0.16;
       f.head.rotation.z = -lookNow.x * 0.06;
       f.eyes.position.x = lookNow.x * 0.07;
       f.eyes.position.y = 0.7 - lookNow.y * 0.04;
       f.eyes.scale.y = eyeScale;
       f.coin.rotation.y = Math.sin(t * 0.8) * 0.35 + anim.spin;
       f.coin.rotation.z = Math.sin(t * 0.5) * 0.05;
+      f.coin.rotation.x = -0.15 + anim.flip;
+      f.coin.position.y = f.coinBaseY + anim.tossY;
+      f.arms.position.y = anim.arms;
     });
   }
 
@@ -318,10 +369,33 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
   }
   if (!fpsOK) { dispose(); return null; }
 
+  // ---------- Coin toss: every few seconds the mascot flips the coin and catches it ----------
+  function toss() {
+    if (!gsap || !running) return;
+    const tl = gsap.timeline({ onComplete: () => { anim.flip = 0; } });
+    tl.to(anim, { arms: -0.08, duration: 0.18, ease: 'power2.in' }, 0)
+      .to(anim, { arms: 0.12, duration: 0.15, ease: 'power2.out' }, 0.18)
+      .to(anim, { tossY: 3.4, duration: 0.7, ease: 'power2.out' }, 0.18)
+      .to(anim, { flip: Math.PI * 6, duration: 1.4, ease: 'none' }, 0.18)
+      .to(anim, { arms: 0, duration: 0.4, ease: 'power2.out' }, 0.33)
+      .to(anim, { tossY: 0, duration: 0.7, ease: 'power2.in' }, 0.88)
+      .to(anim, { arms: -0.07, duration: 0.1, ease: 'power2.out' }, 1.58)
+      .to(anim, { arms: 0, duration: 0.5, ease: 'expo.out' }, 1.68)
+      .to(anim, { squint: 1, duration: 0.12, ease: 'power2.out' }, 1.58)
+      .to(anim, { squint: 0, duration: 0.5, ease: 'power2.out' }, 2.2);
+  }
+  function tossLoop() {
+    gsap?.delayedCall(3.2 + Math.random() * 2, () => {
+      if (running && !document.hidden && anim.tossY === 0) toss();
+      tossLoop();
+    });
+  }
+
   return {
     // Figure rises in, coin spins, then a reveal sweep hints at the hidden version
     intro() {
       if (!gsap) return;
+      gsap.delayedCall(3.4, () => { toss(); tossLoop(); });
       const tl = gsap.timeline();
       tl.fromTo(anim, { rise: -2.6 }, { rise: 0, duration: 1.6, ease: 'expo.out' })
         .fromTo(anim, { spin: -Math.PI * 4 }, { spin: 0, duration: 2, ease: 'expo.out' }, 0.1)

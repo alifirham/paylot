@@ -12,7 +12,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="css/style.css">
-  <script>document.documentElement.className = 'js';</script>
+  <script>
+    document.documentElement.className = 'js';
+    // Show the $0 → $14 preloader once per browser session (skipped for reduced motion)
+    try {
+      if (!matchMedia('(prefers-reduced-motion: reduce)').matches && !sessionStorage.getItem('paylot-intro')) {
+        document.documentElement.classList.add('has-preloader');
+      }
+    } catch (e) { /* storage blocked: no preloader */ }
+  </script>
 
   <!-- Libraries (pinned versions) -->
   <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
@@ -29,6 +37,11 @@
   </script>
 </head>
 <body>
+  <div class="preloader" aria-hidden="true">
+    <div class="preloader__panel"></div>
+    <div class="display preloader__num"><span class="preloader__count">$0</span></div>
+    <p class="preloader__caption">Self rebate · per eligible lot</p>
+  </div>
   <a class="skip-link" href="#main">Skip to content</a>
   <canvas id="webgl" aria-hidden="true"></canvas>
   <div class="cursor" aria-hidden="true"></div>

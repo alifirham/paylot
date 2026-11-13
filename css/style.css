@@ -323,9 +323,22 @@ main { position: relative; }
 
 /* THE focal point: giant $14.
    Solid copy sits BEHIND the 3D figure, outline copy IN FRONT of it. */
-.hero {
+:root {
   --num: min(calc((100vw - 2 * var(--gutter)) / 1.32), 46svh);
 }
+@media (min-width: 1024px) { :root { --num: min(46vw, 56svh); } }
+
+/* Light sweep across the solid $14 (added by JS after the intro) */
+.hero__num-solid.is-shining > span {
+  background: linear-gradient(100deg, var(--accent) 0 42%, #f4ffdc 50%, var(--accent) 58% 100%);
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shine 4.5s cubic-bezier(.65, 0, .35, 1) infinite .6s;
+}
+@keyframes shine { 0% { background-position: 100% 0; } 40%, 100% { background-position: 0% 0; } }
 .hero__num {
   position: relative;
   display: flex;
@@ -457,7 +470,7 @@ main { position: relative; }
   .hero__num-label { margin-left: 24px; margin-bottom: .4em; font-size: 26px; }
 }
 @media (min-width: 1024px) {
-  .hero { display: block; min-height: 100svh; --num: min(46vw, 56svh); }
+  .hero { display: block; min-height: 100svh; }
   .hero__head {
     display: flex;
     align-items: flex-end;
@@ -516,6 +529,50 @@ main { position: relative; }
 /* Start states for JS-driven reveals (only when JS runs) */
 .js .hero__title, .js .hero__num-solid, .js .hero__num-outline { visibility: hidden; }
 .js [data-reveal] { opacity: 0; }
+
+/* =========================================================
+   Preloader ($0 → $14), first visit of the session only
+   ========================================================= */
+.preloader { display: none; }
+.has-preloader body { overflow: hidden; }
+.has-preloader .preloader {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  pointer-events: none;
+}
+.preloader__panel {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  clip-path: inset(0% 0% 0% 0%);
+}
+.preloader__num {
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%;
+  margin-top: -.45em;
+  text-align: center;
+  font-size: var(--num);
+  line-height: .82;
+  white-space: nowrap;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.preloader__caption {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 8svh;
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* Hide the hero $14 until the preloader number lands on it */
+.has-preloader .hero__num-solid, .has-preloader .hero__num-outline { visibility: hidden !important; }
 
 /* =========================================================
    Sticky Telegram bar (mobile)

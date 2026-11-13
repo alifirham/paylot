@@ -144,15 +144,17 @@ export function buildMascot(variant = 'main', { stencil = false, mobile = false 
 
   // ---------- Arms holding the coin ----------
   const handY = -0.72, handZ = 1.0, handX = 0.7;
+  const arms = new THREE.Group();   // moved as one for the coin toss
+  root.add(arms);
   [-1, 1].forEach((s) => {
     const shoulder = new THREE.Vector3(s * 1.12, -0.45, 0.05);
     const elbow = new THREE.Vector3(s * 1.2, -1.15, 0.55);
     const hand = new THREE.Vector3(s * handX, handY, handZ);
-    root.add(limb(shoulder, elbow, 0.17, M.body));
-    root.add(limb(elbow, hand, 0.15, M.body));
+    arms.add(limb(shoulder, elbow, 0.17, M.body));
+    arms.add(limb(elbow, hand, 0.15, M.body));
     const fist = new THREE.Mesh(new THREE.SphereGeometry(0.2, 20, 14), M.dark);
     fist.position.copy(hand);
-    root.add(fist);
+    arms.add(fist);
   });
 
   const coin = buildCoin({ mobile, stencil, variant });
@@ -161,5 +163,5 @@ export function buildMascot(variant = 'main', { stencil = false, mobile = false 
   coin.rotation.x = -0.15;
   root.add(coin);
 
-  return { root, head, eyes, coin };
+  return { root, head, eyes, coin, arms, coinBaseY: coin.position.y };
 }

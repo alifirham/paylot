@@ -96,55 +96,133 @@ if (sticky && heroActions && 'IntersectionObserver' in window) {
   }).observe(heroActions);
 }
 
-// ---------- Hero intro ----------
+// ---------- Hero ----------
 const heroTitle = document.querySelector('.hero__title');
 const heroNums = document.querySelectorAll('.hero__num-solid, .hero__num-outline');  // solid + outline $14
 const heroSplitTargets = [heroTitle, ...heroNums];
 const heroReveals = document.querySelectorAll('.hero [data-reveal]');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function showWithoutMotion() {
   heroSplitTargets.forEach((t) => { t.style.visibility = 'visible'; });
   heroReveals.forEach((el) => { el.style.opacity = 1; });
+  document.querySelector('.preloader')?.remove();
+  root.classList.remove('has-preloader');
+}
+
+// ---------- Preloader: $0 → $14, then the number flies into the hero ----------
+async function runPreloader() {
+  const pre = document.querySelector('.preloader');
+  if (!pre || !root.classList.contains('has-preloader')) return false;
+  if (!hasGSAP) { showWithoutMotion(); return false; }
+  const panel = pre.querySelector('.preloader__panel');
+  const numEl = pre.querySelector('.preloader__num');
+  const countEl = pre.querySelector('.preloader__count');
+  const caption = pre.querySelector('.preloader__caption');
+  lenis?.stop();
+  window.scrollTo(0, 0);
+  try { await Promise.race([document.fonts.ready, wait(1500)]); } catch (_) { /* ignore */ }
+
+  gsap.from([numEl, caption], { opacity: 0, y: 30, duration: 0.6, ease: 'power3.out', stagger: 0.1 });
+  const o = { v: 0 };
+  await gsap.to(o, {
+    v: REBATE_PER_LOT, duration: 1.6, ease: 'power3.inOut',
+    onUpdate: () => { countEl.textContent = fmtUSD(o.v); },
+  });
+  await wait(150);
+
+  // FLIP: measure where the hero $14 lives and fly there
+  const target = document.querySelector('.hero__num-solid > span').getBoundingClientRect();
+  const from = countEl.getBoundingClientRect();
+  const sc = target.height / from.height;
+  const dx = (target.left + target.width / 2) - (from.left + from.width / 2);
+  const dy = (target.top + target.height / 2) - (from.top + from.height / 2);
+  const tl = gsap.timeline();
+  tl.to(caption, { opacity: 0, y: -20, duration: 0.3, ease: 'power2.in' }, 0)
+    .to(panel, { clipPath: 'inset(0% 0% 100% 0%)', duration: 1.1, ease: 'expo.inOut' }, 0.1)
+    .to(numEl, { x: dx, y: dy, scale: sc, duration: 1.1, ease: 'expo.inOut' }, 0.1);
+  await tl;
+  gsap.set(heroNums, { visibility: 'visible' });
+  pre.remove();
+  root.classList.remove('has-preloader');
+  try { sessionStorage.setItem('paylot-intro', '1'); } catch (_) { /* ignore */ }
+  lenis?.start();
+  return true;
 }
 
 async function heroIntro() {
-  if (!hasGSAP) return showWithoutMotion();
+  if (!hasGSAP) { showWithoutMotion(); introDone(); return; }
   if (reducedMotion) {
-    gsap.set(heroSplitTargets, { visibility: 'visible', opacity: 0 });
+    showWithoutMotion();
+    gsap.set(heroSplitTargets, { opacity: 0 });
     gsap.to([...heroSplitTargets, ...heroReveals], { opacity: 1, duration: 0.8, ease: 'power1.out', stagger: 0.1 });
+    introDone();
     return;
   }
   try { await document.fonts.ready; } catch (_) { /* ignore */ }
-  // Each line / number box clips its letters, acting as the reveal mask.
   const titleChars = SplitText.create(heroTitle, { type: 'chars' }).chars;
-  const numChars = [...heroNums].map((n) => SplitText.create(n.firstElementChild, { type: 'chars', aria: 'none' }).chars);
-  gsap.set(heroSplitTargets, { visibility: 'visible' });
+  const numSplits = [...heroNums].map((n) => SplitText.create(n.firstElementChild, { type: 'chars', aria: 'none' }));
+  gsap.set(heroTitle, { visibility: 'visible' });
 
-  const tl = gsap.timeline();
-  // $14 first and biggest: digits punch up from below, staggered
-  numChars.forEach((c) => tl.from(c, { yPercent: 105, duration: 1.4, ease: 'expo.out', stagger: 0.08 }, 0));
-  tl.from(titleChars, { yPercent: 115, duration: 1.2, ease: 'expo.out', stagger: 0.025 }, 0.25)
-    .fromTo(heroReveals, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 1, ease: 'power4.out', stagger: 0.08 }, 0.7);
+  const landed = await runPreloader();
+  const tl = gsap.timeline({ onComplete: startShine });
+  if (!landed) {
+    // No preloader this visit: digits punch up from below
+    gsap.set(heroNums, { visibility: 'visible' });
+    numSplits.forEach((sp) => tl.from(sp.chars, { yPercent: 105, duration: 1.4, ease: 'expo.out', stagger: 0.08 }, 0));
+  } else {
+    // Landing "thump": the number settles with a quick squash
+    tl.fromTo(heroNums, { scaleY: 0.92, scaleX: 1.04, transformOrigin: '50% 100%' },
+      { scaleY: 1, scaleX: 1, duration: 0.9, ease: 'expo.out' }, 0);
+  }
+  tl.from(titleChars, { yPercent: 115, duration: 1.2, ease: 'expo.out', stagger: 0.025 }, landed ? 0 : 0.25)
+    .fromTo(heroReveals, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 1, ease: 'power4.out', stagger: 0.08 }, landed ? 0.3 : 0.7);
+  introDone();
 
-  // Scroll: $14 swells and drifts, headline slides away, figure turns
+  // A light sweep runs across $14 every few seconds once the intro has finished
+  function startShine() {
+    numSplits.forEach((sp) => sp.revert());
+    gsap.set(heroNums, { clearProps: 'transform' });
+    document.querySelector('.hero__num-solid').classList.add('is-shining');
+  }
+
+  // Scroll: $14 swells and drifts, headline slides away, figure sinks and turns
   gsap.timeline({
     scrollTrigger: {
       trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true,
       onUpdate: (self) => coin?.setScroll(self.progress),
     },
   })
-    .to(heroNums, { scale: 1.35, xPercent: -6, transformOrigin: '0% 60%', ease: 'none' }, 0)
-    .to('.hero__head', { xPercent: -12, opacity: 0.2, ease: 'none' }, 0)
+    .to(heroNums, { scale: 2.2, xPercent: -10, transformOrigin: '0% 60%', ease: 'none' }, 0)
+    .to('.hero__head', { xPercent: -14, opacity: 0, ease: 'none' }, 0)
     .to('.hero__bottom, .hero__num-label', { opacity: 0, y: -60, ease: 'none' }, 0)
     .to('.ticker', { yPercent: -120, ease: 'none' }, 0);
+
+  // Scroll velocity: $14 leans into fast scrolls, ticker speeds up
+  const skewTo = gsap.quickTo(heroNums, 'skewX', { duration: 0.5, ease: 'power3.out' });
+  const tickerTl = gsap.to('.ticker__track', { xPercent: -50, duration: 28, ease: 'none', repeat: -1 });
+  document.querySelector('.ticker__track').style.animation = 'none';
+  ScrollTrigger.create({
+    onUpdate: (self) => {
+      const v = self.getVelocity();
+      skewTo(gsap.utils.clamp(-14, 14, -v / 220));
+      tickerTl.timeScale(1 + Math.min(Math.abs(v) / 300, 6));
+      gsap.to(tickerTl, { timeScale: 1, duration: 1.2, ease: 'power2.out', overwrite: true, delay: 0.1 });
+    },
+  });
 }
+
+let introDone;
+const introReady = new Promise((r) => { introDone = r; });
 
 // Safety net: never leave the hero hidden if something fails
 setTimeout(() => {
-  if (getComputedStyle(heroTitle).visibility === 'hidden') showWithoutMotion();
-}, 4000);
+  if (getComputedStyle(heroTitle).visibility === 'hidden' || document.querySelector('.preloader')) {
+    showWithoutMotion(); lenis?.start(); introDone();
+  }
+}, 9000);
 
-// ---------- Custom cursor (desktop only) ----------
+// ---------- Custom cursor + magnetic buttons (desktop only) ----------
 if (finePointer && !reducedMotion && hasGSAP) {
   const cursor = document.querySelector('.cursor');
   root.classList.add('has-cursor');
@@ -156,6 +234,17 @@ if (finePointer && !reducedMotion && hasGSAP) {
   }, { passive: true });
   document.addEventListener('pointerleave', () => gsap.to(cursor, { opacity: 0, duration: 0.3 }));
   document.addEventListener('pointerenter', () => gsap.to(cursor, { opacity: 1, duration: 0.3 }));
+
+  document.querySelectorAll('.btn').forEach((btn) => {
+    const bx = gsap.quickTo(btn, 'x', { duration: 0.6, ease: 'power3.out' });
+    const by = gsap.quickTo(btn, 'y', { duration: 0.6, ease: 'power3.out' });
+    btn.addEventListener('pointermove', (e) => {
+      const r = btn.getBoundingClientRect();
+      bx((e.clientX - (r.left + r.width / 2)) * 0.3);
+      by((e.clientY - (r.top + r.height / 2)) * 0.4);
+    });
+    btn.addEventListener('pointerleave', () => { bx(0); by(0); });
+  });
 }
 
 // ---------- 3D coin (loaded after first paint) ----------
@@ -185,6 +274,7 @@ async function loadCoin() {
       skipFpsCheck: forceCoin,
     });
     if (coin) {
+      await introReady;            // wait for the preloader to land first
       root.classList.add('webgl-on');
       coin.intro();
     }
