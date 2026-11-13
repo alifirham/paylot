@@ -2,7 +2,7 @@
 // One transparent WebGL canvas, fixed behind the page content.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { buildMascot, FIGURE_BOUNDS } from './mascot.js?v=20261113c';
+import { buildMascot, FIGURE_BOUNDS } from './mascot.js?v=20261113d';
 
 const LIME = 0xb8ff2e;
 
@@ -109,7 +109,7 @@ export function buildCoin({ mobile = false, stencil = false, variant = 'main' } 
 // =====================================================================
 //  Stage
 // =====================================================================
-export async function initCoin({ canvas, mobile = false, finePointer = false, skipFpsCheck = false }) {
+export async function initCoin({ canvas, mobile = false, finePointer = false, skipFpsCheck = false, onFps }) {
   const gsap = window.gsap;
   const renderer = new THREE.WebGLRenderer({
     canvas, antialias: true, alpha: true, stencil: true, powerPreference: 'high-performance',
@@ -416,10 +416,22 @@ export async function initCoin({ canvas, mobile = false, finePointer = false, sk
   document.addEventListener('visibilitychange', () => { document.hidden ? stop() : start(); });
 
   // ---------- Performance check (fallback if < 30 fps in the first second) ----------
+  // Timing starts after the first frame, so shader compilation isn't counted.
+  // 27+ frames passes, so phones in Low Power Mode (capped at 30 fps) still get 3D.
+  // Compile both figures' shaders up front so the first reveal doesn't stutter
+  try { renderer.compile(A.scene, camera); renderer.compile(B.scene, camera); } catch (_) { /* ignore */ }
   start();
   const fpsOK = await new Promise((resolve) => {
-    const f0 = frames;
-    setTimeout(() => resolve(skipFpsCheck || frames - f0 >= 30), 1000);
+    const begin = () => {
+      if (frames < 3) return requestAnimationFrame(begin);
+      const f0 = frames, t0 = performance.now();
+      setTimeout(() => {
+        const fps = Math.round(((frames - f0) * 1000) / (performance.now() - t0));
+        onFps?.(fps);
+        resolve(skipFpsCheck || fps >= 27);
+      }, 1000);
+    };
+    begin();
   });
   function dispose() {
     stop(); io.disconnect();

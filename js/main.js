@@ -1,4 +1,4 @@
-import { TELEGRAM_URL, REBATE_PER_LOT } from './config.js?v=20261113c';
+import { TELEGRAM_URL, REBATE_PER_LOT } from './config.js?v=20261113d';
 
 const root = document.documentElement;
 const { gsap, ScrollTrigger, SplitText, Lenis } = window;
@@ -273,7 +273,26 @@ if (finePointer && !reducedMotion && hasGSAP) {
 const canvas = document.getElementById('webgl');
 const isMobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
   || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
-const lowTier = isMobileUA && (navigator.hardwareConcurrency || 4) <= 4;
+// Low-tier = clearly weak hardware only. (iPhone Safari under-reports CPU cores for privacy,
+// so a core count alone would wrongly send every iPhone to the static fallback.
+// The real gate is the frame-rate test inside coin.js.)
+const lowTier = isMobileUA && (
+  (navigator.deviceMemory && navigator.deviceMemory <= 2)
+  || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2 && !/iPhone|iPad/.test(navigator.userAgent))
+);
+const debug = params.has('debug');
+function debugNote(msg) {
+  console.info('[PAYLOT 3D]', msg);
+  if (!debug) return;
+  let el = document.getElementById('paylot-debug');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'paylot-debug';
+    el.style.cssText = 'position:fixed;left:8px;top:8px;z-index:9999;padding:6px 10px;border-radius:8px;background:#000;color:#B8FF2E;font:12px/1.4 monospace;pointer-events:none';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+}
 const forceCoin = params.get('coin') === '3d';     // for testing: ?coin=3d
 const staticCoin = params.get('coin') === 'static'; // for testing: ?coin=static
 
@@ -286,15 +305,20 @@ function webglAvailable() {
 
 let coin = null;
 async function loadCoin() {
-  if (staticCoin || reducedMotion || !webglAvailable() || (lowTier && !forceCoin)) return;
+  if (staticCoin) return debugNote('static: ?coin=static');
+  if (reducedMotion) return debugNote('static: reduced motion is on');
+  if (!webglAvailable()) return debugNote('static: no WebGL');
+  if (lowTier && !forceCoin) return debugNote('static: low-tier device');
   try {
-    const { initCoin } = await import('./coin.js?v=20261113c');
+    const { initCoin } = await import('./coin.js?v=20261113d');
     coin = await initCoin({
       canvas,
       mobile: isMobileUA || innerWidth < 768,
       finePointer,
       skipFpsCheck: forceCoin,
+      onFps: (fps) => debugNote(`fps test: ${fps} fps`),
     });
+    debugNote(coin ? "3D on" : 'static: too slow (fps test failed)');
     if (coin) {
       await introReady;            // wait for the preloader to land first
       root.classList.add('webgl-on');

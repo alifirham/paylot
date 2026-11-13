@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
-import { buildCoin, symbolShapes } from './coin.js?v=20261113c';
+import { buildCoin, symbolShapes } from './coin.js?v=20261113d';
 
 const LIME = 0xb8ff2e;
 
