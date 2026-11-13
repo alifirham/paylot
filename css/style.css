@@ -283,7 +283,9 @@ body.menu-open { overflow: hidden; }
   gap: 24px;
   margin-bottom: 48px;
 }
-.footer__logo { font-size: 40px; display: inline-block; margin-bottom: 8px; }
+.footer__logo { display: inline-block; margin-bottom: 12px; }
+.nav__logo img, .footer__logo img { height: auto; }
+@media (min-width: 768px) { .nav__logo img { width: 126px; } }
 .footer__summary { color: var(--text-2); margin: 0; }
 
 .risk {
