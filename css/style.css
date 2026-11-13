@@ -317,8 +317,8 @@ main { position: relative; }
 /* "Tap to flip" — locks the hidden lime version of the figure */
 .hero__flip {
   position: absolute;
-  right: -4%;
-  top: 12%;
+  right: 0;
+  top: 36%;
   z-index: 3;
   display: inline-flex;
   align-items: center;
@@ -355,7 +355,7 @@ main { position: relative; }
 @keyframes flip-ping { from { transform: scale(.7); opacity: 1; } to { transform: scale(1.35); opacity: 0; } }
 .hero__flip[aria-pressed="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 .hero__flip[aria-pressed="true"] .hero__flip-icon { background: var(--bg); }
-@media (min-width: 1024px) { .hero__flip { right: -8%; top: 36%; } }
+@media (min-width: 1024px) { .hero__flip { right: -16%; left: auto; top: 26%; } }
 
 /* Headline (above the number) */
 .hero__head { position: relative; z-index: 2; }
@@ -449,10 +449,10 @@ main { position: relative; }
   position: relative;
   z-index: 1;
   align-self: center;
-  width: min(80vw, 46svh, 520px);
-  aspect-ratio: 3 / 3.6;
-  margin-top: -20%;
-  margin-bottom: -20%;
+  width: min(96vw, 50svh, 480px);
+  aspect-ratio: 755 / 1165;
+  margin-top: -52%;
+  margin-bottom: -26%;
   pointer-events: none;
 }
 .figure-static {
@@ -461,6 +461,9 @@ main { position: relative; }
   width: 100%;
   height: 100%;
   object-fit: contain;
+  object-position: 50% 100%;
+  -webkit-mask-image: linear-gradient(#000 84%, transparent);
+  mask-image: linear-gradient(#000 84%, transparent);
   transition: opacity .6s var(--ease-out);
 }
 .webgl-on .figure-static { opacity: 0; }
@@ -544,9 +547,10 @@ main { position: relative; }
   .hero__meta { display: none; }
   .hero__figure {
     position: absolute;
-    right: 7vw;
+    right: 6vw;
     bottom: 0;
-    width: min(36vw, 64svh, 620px);
+    width: auto;
+    height: min(76svh, 800px);
     margin: 0;
   }
   .hero__bottom {

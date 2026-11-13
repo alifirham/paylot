@@ -1,4 +1,4 @@
-import { TELEGRAM_URL, REBATE_PER_LOT } from './config.js?v=20261113d';
+import { TELEGRAM_URL, REBATE_PER_LOT } from './config.js?v=20261113e';
 
 const root = document.documentElement;
 const { gsap, ScrollTrigger, SplitText, Lenis } = window;
@@ -205,7 +205,6 @@ async function heroIntro() {
   gsap.timeline({
     scrollTrigger: {
       trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true,
-      onUpdate: (self) => coin?.setScroll(self.progress),
     },
   })
     .to(heroNums, { scale: 2.2, xPercent: -10, transformOrigin: '0% 60%', ease: 'none' }, 0)
@@ -269,13 +268,13 @@ if (finePointer && !reducedMotion && hasGSAP) {
   });
 }
 
-// ---------- 3D coin (loaded after first paint) ----------
+// ---------- Hero model (WebGL, loaded after first paint) ----------
 const canvas = document.getElementById('webgl');
 const isMobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
   || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
 // Low-tier = clearly weak hardware only. (iPhone Safari under-reports CPU cores for privacy,
 // so a core count alone would wrongly send every iPhone to the static fallback.
-// The real gate is the frame-rate test inside coin.js.)
+// Everything else gets the WebGL model; it is a single light shader.)
 const lowTier = isMobileUA && (
   (navigator.deviceMemory && navigator.deviceMemory <= 2)
   || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2 && !/iPhone|iPad/.test(navigator.userAgent))
@@ -303,42 +302,46 @@ function webglAvailable() {
   } catch (_) { return false; }
 }
 
-let coin = null;
-async function loadCoin() {
+let figure = null;
+async function loadFigure() {
   if (staticCoin) return debugNote('static: ?coin=static');
   if (reducedMotion) return debugNote('static: reduced motion is on');
   if (!webglAvailable()) return debugNote('static: no WebGL');
   if (lowTier && !forceCoin) return debugNote('static: low-tier device');
   try {
-    const { initCoin } = await import('./coin.js?v=20261113d');
-    coin = await initCoin({
+    const { initModel } = await import('./model.js?v=20261113e');
+    figure = await initModel({
       canvas,
-      mobile: isMobileUA || innerWidth < 768,
+      anchor: document.querySelector('[data-figure-anchor]'),
+      hero: document.querySelector('.hero'),
       finePointer,
-      skipFpsCheck: forceCoin,
-      onFps: (fps) => debugNote(`fps test: ${fps} fps`),
+      mobile: isMobileUA || innerWidth < 768,
     });
-    debugNote(coin ? "3D on" : 'static: too slow (fps test failed)');
-    if (coin) {
-      await introReady;            // wait for the preloader to land first
-      root.classList.add('webgl-on');
-      coin.intro();
-      // "Tap to flip": lock the hidden lime version on / off
-      const flip = document.querySelector('[data-flip]');
-      if (flip) {
-        flip.querySelector('.hero__flip-label').textContent = finePointer ? 'Click to flip' : 'Tap to flip';
-        flip.hidden = false;
-        gsap?.from(flip, { opacity: 0, x: 20, duration: 0.8, ease: 'expo.out', delay: 2.2 });
-        flip.addEventListener('click', () => {
-          const on = flip.getAttribute('aria-pressed') !== 'true';
-          flip.setAttribute('aria-pressed', String(on));
-          flip.querySelector('.hero__flip-label').textContent = on ? 'Flip back' : (finePointer ? 'Click to flip' : 'Tap to flip');
-          coin.setLock(on);
-        });
-      }
+    debugNote(figure ? 'model on' : 'static: WebGL failed');
+    if (!figure) return;
+    await introReady;            // wait for the preloader to land first
+    root.classList.add('webgl-on');
+    figure.intro();
+    // $14 drifts the opposite way to the model's tilt (uses CSS "translate", separate from GSAP transforms)
+    const nums = document.querySelectorAll('.hero__num-solid, .hero__num-outline');
+    figure.onTilt((x, y) => { const v = `${(x * -14).toFixed(2)}px ${(y * -8).toFixed(2)}px`; nums.forEach((el) => { el.style.translate = v; }); });
+    // "Tap to flip": keep the masked look on / off
+    const flip = document.querySelector('[data-flip]');
+    if (flip) {
+      const idle = finePointer ? 'Click to reveal' : 'Tap to reveal';
+      flip.querySelector('.hero__flip-label').textContent = idle;
+      flip.hidden = false;
+      gsap?.from(flip, { opacity: 0, x: 20, duration: 0.8, ease: 'expo.out', delay: 1.6 });
+      flip.addEventListener('click', () => {
+        const on = flip.getAttribute('aria-pressed') !== 'true';
+        flip.setAttribute('aria-pressed', String(on));
+        flip.querySelector('.hero__flip-label').textContent = on ? 'Hide' : idle;
+        figure.setLock(on);
+      });
     }
   } catch (err) {
-    console.warn('3D coin unavailable, using static coin.', err);
+    console.warn('Hero model unavailable, using the static image.', err);
+    debugNote('static: ' + err.message);
     root.classList.remove('webgl-on');
   }
 }
@@ -351,4 +354,4 @@ function afterFirstPaint(fn) {
 
 // ---------- Start ----------
 heroIntro();
-afterFirstPaint(loadCoin);
+afterFirstPaint(loadFigure);
