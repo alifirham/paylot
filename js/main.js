@@ -85,47 +85,63 @@ matchMedia('(min-width: 900px)').addEventListener('change', (e) => {
   if (e.matches && !menu.hidden) closeMenu({ restoreFocus: false });
 });
 
+// ---------- Sticky Telegram bar: visible whenever the hero buttons are off-screen ----------
+const sticky = document.querySelector('[data-sticky-cta]');
+const heroActions = document.querySelector('.hero__actions');
+if (sticky && heroActions && 'IntersectionObserver' in window) {
+  new IntersectionObserver(([entry]) => {
+    const show = !entry.isIntersecting;
+    sticky.classList.toggle('is-visible', show);
+    sticky.querySelector('a').tabIndex = show ? 0 : -1;
+  }).observe(heroActions);
+}
+
 // ---------- Hero intro ----------
-const heroTitles = document.querySelectorAll('.hero__title');   // solid + outline copy
+const heroTitle = document.querySelector('.hero__title');
+const heroNums = document.querySelectorAll('.hero__num-solid, .hero__num-outline');  // solid + outline $14
+const heroSplitTargets = [heroTitle, ...heroNums];
 const heroReveals = document.querySelectorAll('.hero [data-reveal]');
 
 function showWithoutMotion() {
-  heroTitles.forEach((t) => { t.style.visibility = 'visible'; });
+  heroSplitTargets.forEach((t) => { t.style.visibility = 'visible'; });
   heroReveals.forEach((el) => { el.style.opacity = 1; });
 }
 
 async function heroIntro() {
   if (!hasGSAP) return showWithoutMotion();
   if (reducedMotion) {
-    gsap.set(heroTitles, { visibility: 'visible', opacity: 0 });
-    gsap.to([...heroTitles, ...heroReveals], { opacity: 1, duration: 0.8, ease: 'power1.out', stagger: 0.1 });
+    gsap.set(heroSplitTargets, { visibility: 'visible', opacity: 0 });
+    gsap.to([...heroSplitTargets, ...heroReveals], { opacity: 1, duration: 0.8, ease: 'power1.out', stagger: 0.1 });
     return;
   }
   try { await document.fonts.ready; } catch (_) { /* ignore */ }
-  // Split both copies the same way so they animate in lock-step.
-  // Each line (.hero__l1 / .hero__l2) clips its letters, acting as the mask.
-  const chars = [...heroTitles].map((t) => SplitText.create(t, { type: 'chars', aria: t.id ? 'auto' : 'none' }).chars);
-  gsap.set(heroTitles, { visibility: 'visible' });
-  const tl = gsap.timeline();
-  chars.forEach((c) => tl.from(c, { yPercent: 115, duration: 1.3, ease: 'expo.out', stagger: 0.03 }, 0));
-  tl.fromTo(heroReveals, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 1, ease: 'power4.out', stagger: 0.1 }, 0.6);
+  // Each line / number box clips its letters, acting as the reveal mask.
+  const titleChars = SplitText.create(heroTitle, { type: 'chars' }).chars;
+  const numChars = [...heroNums].map((n) => SplitText.create(n.firstElementChild, { type: 'chars', aria: 'none' }).chars);
+  gsap.set(heroSplitTargets, { visibility: 'visible' });
 
-  // Scroll: the two title lines split apart, copy fades, figure turns
+  const tl = gsap.timeline();
+  // $14 first and biggest: digits punch up from below, staggered
+  numChars.forEach((c) => tl.from(c, { yPercent: 105, duration: 1.4, ease: 'expo.out', stagger: 0.08 }, 0));
+  tl.from(titleChars, { yPercent: 115, duration: 1.2, ease: 'expo.out', stagger: 0.025 }, 0.25)
+    .fromTo(heroReveals, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 1, ease: 'power4.out', stagger: 0.08 }, 0.7);
+
+  // Scroll: $14 swells and drifts, headline slides away, figure turns
   gsap.timeline({
     scrollTrigger: {
       trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true,
       onUpdate: (self) => coin?.setScroll(self.progress),
     },
   })
-    .to('.hero__l1', { xPercent: -28, ease: 'none' }, 0)
-    .to('.hero__l2', { xPercent: 28, ease: 'none' }, 0)
-    .to('.hero__bottom', { opacity: 0, y: -80, ease: 'none' }, 0)
+    .to(heroNums, { scale: 1.35, xPercent: -6, transformOrigin: '0% 60%', ease: 'none' }, 0)
+    .to('.hero__head', { xPercent: -12, opacity: 0.2, ease: 'none' }, 0)
+    .to('.hero__bottom, .hero__num-label', { opacity: 0, y: -60, ease: 'none' }, 0)
     .to('.ticker', { yPercent: -120, ease: 'none' }, 0);
 }
 
 // Safety net: never leave the hero hidden if something fails
 setTimeout(() => {
-  if (getComputedStyle(heroTitles[0]).visibility === 'hidden') showWithoutMotion();
+  if (getComputedStyle(heroTitle).visibility === 'hidden') showWithoutMotion();
 }, 4000);
 
 // ---------- Custom cursor (desktop only) ----------

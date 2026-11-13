@@ -68,9 +68,18 @@
     <!-- 5.1 HERO -->
     <section class="hero" id="hero" aria-labelledby="hero-title">
       <div class="hero__glow" aria-hidden="true"></div>
-      <div class="container hero__type">
+      <div class="container hero__head">
         <h1 class="display hero__title" id="hero-title"><span class="hero__l1">Get paid</span> <span class="hero__l2">every <span class="accent">lot.</span></span></h1>
-        <div class="display hero__title hero__title--outline" aria-hidden="true"><span class="hero__l1">Get paid</span> <span class="hero__l2">every <span class="accent">lot.</span></span></div>
+        <p class="hero__sub" data-reveal>Self rebate of <strong class="accent" data-rebate>$14</strong> per eligible lot, on top of your trading.</p>
+      </div>
+
+      <!-- The focal number. Solid copy sits behind the 3D figure, outline copy in front. -->
+      <div class="container hero__num" aria-hidden="true">
+        <span class="hero__num-stack">
+          <span class="display hero__num-solid"><span data-rebate>$14</span></span>
+          <span class="display hero__num-outline"><span data-rebate>$14</span></span>
+        </span>
+        <span class="hero__num-label" data-reveal>per <br>eligible <br>lot</span>
       </div>
 
       <!-- The 3D figure is drawn over this box. The image is the no-WebGL fallback. -->
@@ -81,7 +90,6 @@
       <div class="hero__bottom">
         <div class="container hero__bottom-inner">
           <div class="hero__copy">
-            <p class="hero__sub" data-reveal>Self rebate of <strong class="accent" data-rebate>$14</strong> per eligible lot, on top of your trading.</p>
             <div class="hero__actions" data-reveal>
               <a class="btn btn--outline" href="#calculator">Calculate Your Rebate</a>
               <a class="btn btn--primary" data-telegram href="#" target="_blank" rel="noopener">Join on Telegram</a>
@@ -163,6 +171,11 @@
       </div>
     </div>
   </footer>
+
+  <!-- Sticky Telegram bar (mobile only) -->
+  <div class="sticky-cta" data-sticky-cta>
+    <a class="btn btn--primary" data-telegram href="#" target="_blank" rel="noopener" tabindex="-1">Join on Telegram</a>
+  </div>
 
   <script type="module" src="js/main.js"></script>
 </body>
