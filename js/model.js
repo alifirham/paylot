@@ -7,7 +7,7 @@
 // When nobody is touching, the blob drifts around the face on its own.
 
 const LIME = [184 / 255, 1, 46 / 255];
-const SRC = { L0: 'assets/model-base.webp?v=20261114c', L1: 'assets/model-mask.webp?v=20261114c', D: 'assets/model-depth.webp?v=20261114c' };
+const SRC = { L0: 'assets/model-base.webp?v=20261114d', L1: 'assets/model-mask.webp?v=20261114d', D: 'assets/model-depth.webp?v=20261114d' };
 const IW = 750, IH = 1275;               // source image size (all layers share it)
 const FACE = [369 / IW, 560 / IH];       // idle drift centre (chest: the shirt turns lime there)
 
@@ -28,9 +28,9 @@ void main(){
   vec4 c0=texture2D(L0,uv+o);
   vec4 c1=texture2D(L1,uv+o1);
   // liquid reveal mask (trail texture + moving noise on the edge)
-  vec2 su=fc/res;
+  vec2 su=gl_FragCoord.xy/res;
   float w=n(fc*.008+t*.35)*.6+n(fc*.02-t*.5)*.4;
-  float b=texture2D(B,su+(vec2(n(fc*.01+t*.2),n(fc*.01-t*.2))-.5)*.035).a;
+  float b=texture2D(B,su+(vec2(n(fc*.01+t*.2),n(fc*.01-t*.2))-.5)*vec2(.035,-.035)).r;
   float v=max(b+(w-.5)*.35, lock*1.2-.5+(w-.5)*.3);
   float keep=d.b;  // head area: always the original look (no lime, no edge line)
   float r=smoothstep(.28,.34,v)*(1.-keep);
@@ -54,6 +54,25 @@ void main(){
   gl_FragColor=col;
 }`;
 
+// Trail pass: fades the previous trail a little and stamps soft discs where the
+// finger / cursor moved. Runs entirely on the GPU (no 2D canvas read-back, which
+// Safari's privacy protection treats as fingerprinting).
+const MAX_PTS = 24;
+const TRAIL_FS = `precision highp float;
+uniform sampler2D prev; uniform vec2 size; uniform vec4 pts[${MAX_PTS}]; uniform int count;
+void main(){
+  float a=max(texture2D(prev,gl_FragCoord.xy/size).r*.955-.002,0.);
+  for(int i=0;i<${MAX_PTS};i++){
+    if(i>=count) break;
+    vec4 q=pts[i];
+    float d=length(gl_FragCoord.xy-q.xy)/q.z;
+    float s=d<.55 ? mix(q.w,q.w*.85,d/.55) : mix(q.w*.85,0.,(d-.55)/.45);
+    s*=step(d,1.);
+    a=s+a*(1.-s);
+  }
+  gl_FragColor=vec4(a,a,a,1.);
+}`;
+
 function loadImage(src) {
   return new Promise((resolve, reject) => {
     const im = new Image();
@@ -74,17 +93,28 @@ export async function initModel({ canvas, anchor, hero, finePointer, mobile }) {
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
     return s;
   }
-  const pr = gl.createProgram();
-  gl.attachShader(pr, shader(gl.VERTEX_SHADER, VS));
-  gl.attachShader(pr, shader(gl.FRAGMENT_SHADER, FS));
-  gl.linkProgram(pr);
-  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
-  gl.useProgram(pr);
+  function program(fs) {
+    const prog = gl.createProgram();
+    gl.attachShader(prog, shader(gl.VERTEX_SHADER, VS));
+    gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+    return prog;
+  }
+  const tp = program(TRAIL_FS);
+  const pr = program(FS);
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-  const pl = gl.getAttribLocation(pr, 'p');
-  gl.enableVertexAttribArray(pl);
-  gl.vertexAttribPointer(pl, 2, gl.FLOAT, false, 0, 0);
+  [tp, pr].forEach((prog) => {
+    const pl = gl.getAttribLocation(prog, 'p');
+    gl.enableVertexAttribArray(pl);
+    gl.vertexAttribPointer(pl, 2, gl.FLOAT, false, 0, 0);
+  });
+  const TU = {};
+  ['prev', 'size', 'pts', 'count'].forEach((k) => { TU[k] = gl.getUniformLocation(tp, k); });
+  gl.useProgram(tp);
+  gl.uniform1i(TU.prev, 4);
+  gl.useProgram(pr);
   const U = {};
   ['L0', 'L1', 'D', 'B', 'res', 'rect', 'tilt', 'light', 't', 'alpha', 'lock', 'lime'].forEach((k) => { U[k] = gl.getUniformLocation(pr, k); });
   gl.uniform3fv(U.lime, LIME);
@@ -107,11 +137,29 @@ export async function initModel({ canvas, anchor, hero, finePointer, mobile }) {
     texture(unit, name);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
   });
-  const blobTex = texture(3, 'B');
+  gl.uniform1i(U.B, 3);
 
-  // Trail canvas (quarter resolution, faded a little every frame)
-  const bc = document.createElement('canvas');
-  const bx = bc.getContext('2d');
+  // Trail: two quarter-resolution render targets, swapped every frame
+  const trail = [0, 1].map(() => ({ tex: gl.createTexture(), fb: gl.createFramebuffer() }));
+  let tw = 64, th = 64, cur = 0;
+  function sizeTrail() {
+    trail.forEach(({ tex, fb }) => {
+      gl.activeTexture(gl.TEXTURE5);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tw, th, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    });
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  const pts = new Float32Array(MAX_PTS * 4);
+  let npts = 0;
 
   let W = 0, H = 0, dpr = 1;
   function layout() {
@@ -119,7 +167,8 @@ export async function initModel({ canvas, anchor, hero, finePointer, mobile }) {
     W = innerWidth; H = innerHeight;
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
     gl.viewport(0, 0, canvas.width, canvas.height);
-    bc.width = Math.max(64, (W / 4) | 0); bc.height = Math.max(64, (H / 4) | 0);
+    tw = Math.max(64, (W / 4) | 0); th = Math.max(64, (H / 4) | 0);
+    sizeTrail();
   }
   layout();
   window.addEventListener('resize', layout);
@@ -145,13 +194,12 @@ export async function initModel({ canvas, anchor, hero, finePointer, mobile }) {
   const onLeave = () => { ptr.active = false; };
   document.documentElement.addEventListener('pointerleave', onLeave);
 
+  // Queue a soft disc (CSS px in, trail px out; GL's y axis points up)
   function stamp(x, y, rad, a) {
-    const k = bc.width / W, X = x * k, Y = y * k, R = rad * k;
-    const g = bx.createRadialGradient(X, Y, 0, X, Y, R);
-    g.addColorStop(0, `rgba(255,255,255,${a})`);
-    g.addColorStop(0.55, `rgba(255,255,255,${a * 0.85})`);
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    bx.fillStyle = g; bx.beginPath(); bx.arc(X, Y, R, 0, 7); bx.fill();
+    if (npts >= MAX_PTS) return;
+    const k = tw / W;
+    pts.set([x * k, (H - y) * (th / H), rad * k, a], npts * 4);
+    npts++;
   }
 
   // Only draw while the hero is on screen
@@ -165,10 +213,7 @@ export async function initModel({ canvas, anchor, hero, finePointer, mobile }) {
     const t = ms / 1000, now = performance.now();
     const rect = figureRect();
 
-    bx.globalCompositeOperation = 'destination-out';
-    bx.fillStyle = 'rgba(0,0,0,0.045)';
-    bx.fillRect(0, 0, bc.width, bc.height);
-    bx.globalCompositeOperation = 'source-over';
+    npts = 0;
 
     const base = Math.min(W, H) * 0.16;
     let x = ptr.x, y = ptr.y;
@@ -186,15 +231,29 @@ export async function initModel({ canvas, anchor, hero, finePointer, mobile }) {
     }
     if (ptr.px < -9e4) { ptr.px = x; ptr.py = y; }
     const dx = x - ptr.px, dy = y - ptr.py, dist = Math.hypot(dx, dy);
-    const sp = Math.min(dist / 40, 1), steps = Math.min(40, Math.max(1, Math.ceil(dist / (base * 0.25))));
+    const sp = Math.min(dist / 40, 1), steps = Math.min(MAX_PTS, Math.max(1, Math.ceil(dist / (base * 0.25))));
     for (let i = 1; i <= steps; i++) {
       stamp(ptr.px + (dx * i) / steps, ptr.py + (dy * i) / steps, base * (live ? 1 + sp * 0.5 : 0.75), live ? 0.9 : 0.6);
     }
     ptr.px = x; ptr.py = y;
 
-    gl.activeTexture(gl.TEXTURE3);
-    gl.bindTexture(gl.TEXTURE_2D, blobTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bc);
+    // trail pass: read trail[cur], write trail[1 - cur]
+    const src = trail[cur], dst = trail[1 - cur];
+    cur = 1 - cur;
+    gl.useProgram(tp);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, src.tex);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
+    gl.viewport(0, 0, tw, th);
+    gl.uniform2f(TU.size, tw, th);
+    gl.uniform4fv(TU.pts, pts);
+    gl.uniform1i(TU.count, npts);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, dst.tex);
+    gl.useProgram(pr);
 
     sx += (tx - sx) * 0.06; sy += (ty - sy) * 0.06;
     state.lock += (state.lockTo - state.lock) * 0.07;
