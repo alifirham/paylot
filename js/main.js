@@ -1,4 +1,4 @@
-import { TELEGRAM_URL, REBATE_PER_LOT } from './config.js?v=20261113e';
+import { TELEGRAM_URL, REBATE_PER_LOT } from './config.js?v=20261114a';
 
 const root = document.documentElement;
 const { gsap, ScrollTrigger, SplitText, Lenis } = window;
@@ -309,7 +309,7 @@ async function loadFigure() {
   if (!webglAvailable()) return debugNote('static: no WebGL');
   if (lowTier && !forceCoin) return debugNote('static: low-tier device');
   try {
-    const { initModel } = await import('./model.js?v=20261113e');
+    const { initModel } = await import('./model.js?v=20261114a');
     figure = await initModel({
       canvas,
       anchor: document.querySelector('[data-figure-anchor]'),

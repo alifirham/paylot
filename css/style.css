@@ -450,7 +450,7 @@ main { position: relative; }
   z-index: 1;
   align-self: center;
   width: min(96vw, 50svh, 480px);
-  aspect-ratio: 755 / 1165;
+  aspect-ratio: 750 / 1275;
   margin-top: -52%;
   margin-bottom: -26%;
   pointer-events: none;
