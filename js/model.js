@@ -7,7 +7,7 @@
 // When nobody is touching, the blob drifts around the face on its own.
 
 const LIME = [184 / 255, 1, 46 / 255];
-const SRC = { L0: 'assets/model-base.webp?v=20261114f', L1: 'assets/model-mask.webp?v=20261114f', D: 'assets/model-depth.webp?v=20261114f' };
+const SRC = { L0: 'assets/model-base.webp?v=20261114g', L1: 'assets/model-mask.webp?v=20261114g', D: 'assets/model-depth.webp?v=20261114g' };
 const IW = 750, IH = 1275;               // source image size (all layers share it)
 const FACE = [369 / IW, 213 / IH];       // face centre: the idle reveal drifts around it
 

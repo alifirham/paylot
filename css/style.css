@@ -594,6 +594,161 @@ main { position: relative; }
 .js [data-reveal] { opacity: 0; }
 
 /* =========================================================
+   Shared section bits
+   ========================================================= */
+.eyebrow {
+  margin: 0 0 18px;
+  font: 600 12px/1.4 var(--font-body);
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.h2 .line { padding-bottom: .04em; }
+
+/* =========================================================
+   5.2 Market calendar
+   ========================================================= */
+.cal__head { margin-bottom: 40px; }
+.cal__head .h2 { margin-bottom: 0; }
+.cal__intro { color: var(--text-2); font-size: 18px; max-width: 32ch; margin: 20px 0 0; }
+@media (min-width: 900px) {
+  .cal__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 40px; margin-bottom: 56px; }
+  .cal__intro { font-size: 20px; margin: 0 0 .6em; text-align: right; }
+}
+
+.cal__card {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.cal__card::before {   /* faint lime wash in the top corner */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(60% 40% at 100% 0%, rgba(184, 255, 46, .08), transparent 70%);
+  pointer-events: none;
+}
+.cal__anchor { position: absolute; right: 0; top: 0; width: 1px; height: 1px; }
+
+.cal__bar {
+  position: relative;
+  padding: 20px;
+  border-bottom: 1px solid var(--line);
+}
+@media (min-width: 900px) {
+  .cal__bar { display: flex; align-items: center; gap: 32px; padding: 24px 28px; }
+}
+
+/* Impact filter pills with a sliding lime highlight */
+.pills {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 100px;
+  background: var(--bg);
+}
+.pills__thumb {
+  position: absolute;
+  left: 0; top: 4px; bottom: 4px;
+  width: 0;
+  border-radius: 100px;
+  background: var(--accent);
+  opacity: 0;
+  transition: transform .6s var(--ease-out), width .6s var(--ease-out);
+}
+.pills.is-ready .pills__thumb { opacity: 1; }
+.pills__btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 100px;
+  background: transparent;
+  color: var(--text-2);
+  font: 600 15px/1 var(--font-body);
+  cursor: pointer;
+  transition: color .4s var(--ease-out);
+}
+.pills__btn[aria-pressed="true"] { color: var(--bg); }
+.pills:not(.is-ready) .pills__btn[aria-pressed="true"] { background: var(--accent); }
+@media (hover: hover) and (pointer: fine) {
+  .pills__btn[aria-pressed="false"]:hover { color: var(--text); }
+}
+
+/* Impact dots: 3 / 2 / 1 filled bars */
+.dot {
+  display: inline-block;
+  width: 14px; height: 10px;
+  background:
+    linear-gradient(currentColor, currentColor) 0 100% / 3px 40% no-repeat,
+    linear-gradient(currentColor, currentColor) 5.5px 100% / 3px 70% no-repeat,
+    linear-gradient(currentColor, currentColor) 11px 100% / 3px 100% no-repeat;
+}
+.dot--2 { background:
+    linear-gradient(currentColor, currentColor) 0 100% / 3px 40% no-repeat,
+    linear-gradient(currentColor, currentColor) 5.5px 100% / 3px 70% no-repeat,
+    linear-gradient(rgba(145,148,151,.35), rgba(145,148,151,.35)) 11px 100% / 3px 100% no-repeat; }
+.dot--1 { background:
+    linear-gradient(currentColor, currentColor) 0 100% / 3px 40% no-repeat,
+    linear-gradient(rgba(145,148,151,.35), rgba(145,148,151,.35)) 5.5px 100% / 3px 70% no-repeat,
+    linear-gradient(rgba(145,148,151,.35), rgba(145,148,151,.35)) 11px 100% / 3px 100% no-repeat; }
+
+.cal__legend {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.cal__legend b { color: var(--text-2); font-weight: 600; }
+.cal__legend li { transition: color .4s var(--ease-out); }
+.cal__legend li.is-active { color: var(--text-2); }
+.cal__legend li.is-active b { color: var(--accent); }
+@media (min-width: 900px) { .cal__legend { margin: 0; } }
+
+/* Widget area: fixed height so nothing jumps while it loads */
+.cal__frame {
+  position: relative;
+  height: 560px;
+}
+@media (min-width: 900px) { .cal__frame { height: 640px; } }
+.cal__frame .tradingview-widget-container {
+  position: absolute;
+  inset: 0;
+  transition: opacity .5s var(--ease-out);
+}
+.cal__frame .tradingview-widget-container__widget { height: 100%; }
+.cal__frame iframe { display: block; width: 100%; height: 100%; color-scheme: normal; }  /* keeps the widget see-through on our dark page */
+.cal__frame.is-loading .tradingview-widget-container:last-of-type:not(.is-old) { opacity: 0; }
+.cal__frame .tradingview-widget-container.is-old { opacity: .25; }
+.cal__status {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  letter-spacing: .06em;
+}
+.cal__status[hidden] { display: none; }
+.cal__frame.is-loading .cal__status { animation: cal-pulse 1.6s ease-in-out infinite; }
+@keyframes cal-pulse { 50% { opacity: .4; } }
+.cal__note { margin: 16px 0 0; }
+
+/* =========================================================
    Sticky Telegram bar (mobile)
    ========================================================= */
 .sticky-cta {

@@ -1,4 +1,5 @@
-import { TELEGRAM_URL, REBATE_PER_LOT } from './config.js?v=20261114f';
+import { TELEGRAM_URL, REBATE_PER_LOT } from './config.js?v=20261114g';
+import { initCalendar } from './calendar.js?v=20261114g';
 
 const root = document.documentElement;
 const { gsap, ScrollTrigger, SplitText, Lenis } = window;
@@ -309,7 +310,7 @@ async function loadFigure() {
   if (!webglAvailable()) return debugNote('static: no WebGL');
   if (lowTier && !forceCoin) return debugNote('static: low-tier device');
   try {
-    const { initModel } = await import('./model.js?v=20261114f');
+    const { initModel } = await import('./model.js?v=20261114g');
     figure = await initModel({
       canvas,
       anchor: document.querySelector('[data-figure-anchor]'),
@@ -352,6 +353,32 @@ function afterFirstPaint(fn) {
   else window.addEventListener('load', run, { once: true });
 }
 
+// ---------- Section reveals (everything below the hero) ----------
+function sectionReveals() {
+  const fades = document.querySelectorAll('main > section:not(.hero) [data-reveal]');
+  const heads = document.querySelectorAll('[data-split]');
+  if (!hasGSAP || reducedMotion) {
+    // Reduced motion: a plain fade, no movement
+    fades.forEach((el) => { el.style.transition = 'opacity .6s'; el.style.opacity = 1; });
+    return;
+  }
+  heads.forEach((h) => {
+    const split = SplitText.create(h, { type: 'lines', mask: 'lines', linesClass: 'line' });
+    gsap.from(split.lines, {
+      yPercent: 110, duration: 1.2, ease: 'expo.out', stagger: 0.08,
+      scrollTrigger: { trigger: h, start: 'top 88%', once: true },
+    });
+  });
+  fades.forEach((el) => {
+    gsap.fromTo(el, { opacity: 0, y: 30 }, {
+      opacity: 1, y: 0, duration: 1, ease: 'power4.out',
+      scrollTrigger: { trigger: el, start: 'top 92%', once: true },
+    });
+  });
+}
+
 // ---------- Start ----------
 heroIntro();
+sectionReveals();
+initCalendar(document.getElementById('calendar'), { gsap: hasGSAP ? gsap : null, reducedMotion });
 afterFirstPaint(loadFigure);

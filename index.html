@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=20261114f">
+  <link rel="stylesheet" href="css/style.css?v=20261114g">
   <link rel="preload" as="image" href="assets/model-base.webp" fetchpriority="high">
   <!-- Critical preloader styles live here so a stale cached stylesheet can never show it unstyled -->
   <style>
@@ -144,11 +144,39 @@
       </div>
     </section>
 
-    <!-- 5.2 CALENDAR (step 5) -->
-    <section class="section" id="calendar" aria-labelledby="calendar-title">
+    <!-- 5.2 CALENDAR -->
+    <section class="section cal" id="calendar" aria-labelledby="calendar-title">
       <div class="container">
-        <h2 class="h2" id="calendar-title">Market calendar</h2>
-        <p class="placeholder">Coming in step 5</p>
+        <div class="cal__head">
+          <div>
+            <p class="eyebrow">01 &mdash; Before you trade</p>
+            <h2 class="h2" id="calendar-title" data-split>Market calendar</h2>
+          </div>
+          <p class="cal__intro" data-reveal>Know the high-impact events before you trade.</p>
+        </div>
+
+        <div class="cal__card" data-cal-card>
+          <span class="cal__anchor" data-coin-anchor="calendar" aria-hidden="true"></span>
+          <div class="cal__bar">
+            <div class="pills" role="group" aria-label="Filter by impact">
+              <span class="pills__thumb" aria-hidden="true"></span>
+              <button class="pills__btn" type="button" data-level="high" aria-pressed="true"><i class="dot dot--3" aria-hidden="true"></i>High</button>
+              <button class="pills__btn" type="button" data-level="medium" aria-pressed="false"><i class="dot dot--2" aria-hidden="true"></i>Medium</button>
+              <button class="pills__btn" type="button" data-level="low" aria-pressed="false"><i class="dot dot--1" aria-hidden="true"></i>Low</button>
+            </div>
+            <ul class="cal__legend">
+              <li data-level="high"><b>High:</b> major releases such as interest rate decisions and jobs data. Prices can move sharply and spreads can widen.</li>
+              <li data-level="medium"><b>Medium:</b> can move prices noticeably, especially when the result surprises.</li>
+              <li data-level="low"><b>Low:</b> usually little effect on prices on their own.</li>
+            </ul>
+          </div>
+
+          <div class="cal__frame" data-cal-frame>
+            <p class="cal__status" data-cal-status>Loading calendar&hellip;</p>
+          </div>
+        </div>
+
+        <p class="fine cal__note" data-reveal>Calendar data is for information only.</p>
       </div>
     </section>
 
@@ -213,6 +241,6 @@
     <a class="btn btn--primary" data-telegram href="#" target="_blank" rel="noopener" tabindex="-1">Join on Telegram</a>
   </div>
 
-  <script type="module" src="js/main.js?v=20261114f"></script>
+  <script type="module" src="js/main.js?v=20261114g"></script>
 </body>
 </html>
