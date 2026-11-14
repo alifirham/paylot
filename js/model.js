@@ -1,15 +1,15 @@
 // PAYLOT hero model (cartoon) — liquid reveal.
 // One full-screen WebGL quad draws the model photo into the hero figure box:
 //   base layer  : the cartoon trader in a black kit
-//   reveal layer: the same trader in a lime PAYLOT kit (lime mask + shirt)
+//   reveal layer: the same trader in a lime PAYLOT kit (black mask, lime shirt)
 // A liquid blob follows the finger / cursor and leaves a fading trail; where the
 // blob is, the lime layer shows through. A depth map adds a slight 3D tilt.
 // When nobody is touching, the blob drifts around the face on its own.
 
 const LIME = [184 / 255, 1, 46 / 255];
-const SRC = { L0: 'assets/model-base.webp', L1: 'assets/model-mask.webp', D: 'assets/model-depth.webp' };
+const SRC = { L0: 'assets/model-base.webp?v=20261114b', L1: 'assets/model-mask.webp?v=20261114b', D: 'assets/model-depth.webp?v=20261114b' };
 const IW = 750, IH = 1275;               // source image size (all layers share it)
-const FACE = [369 / IW, 213 / IH];       // face centre in image space
+const FACE = [369 / IW, 560 / IH];       // idle drift centre (chest: the shirt turns lime there)
 
 const VS = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
 const FS = `precision highp float;
@@ -177,7 +177,7 @@ export async function initModel({ canvas, anchor, hero, finePointer, mobile }) {
       ty = ((y - (rect[1] + rect[3] * 0.4)) / Math.max(rect[3], 1)) * 1.4;
       tx = Math.max(-1, Math.min(1, tx)); ty = Math.max(-1, Math.min(1, ty));
     } else {
-      // idle: drift around the face so people know to try
+      // idle: drift over the chest so people know to try
       const fx = rect[0] + rect[2] * FACE[0], fy = rect[1] + rect[3] * FACE[1];
       x = fx + Math.cos(t * 0.9) * rect[2] * 0.16;
       y = fy + Math.sin(t * 1.3) * rect[3] * 0.08;
