@@ -1,15 +1,15 @@
 // PAYLOT hero model (cartoon) — liquid reveal.
 // One full-screen WebGL quad draws the model photo into the hero figure box:
-//   base layer  : the cartoon trader in a black kit
-//   reveal layer: the same trader in a lime PAYLOT kit (black mask, lime shirt)
+//   base layer  : the cartoon trader with a soft-focus face
+//   reveal layer: the same trader, mask sharp and in its own colours
 // A liquid blob follows the finger / cursor and leaves a fading trail; where the
-// blob is, the lime layer shows through. A depth map adds a slight 3D tilt.
+// blob is, the mask shows through. A depth map adds a slight 3D tilt.
 // When nobody is touching, the blob drifts around the face on its own.
 
 const LIME = [184 / 255, 1, 46 / 255];
-const SRC = { L0: 'assets/model-base.webp?v=20261114e', L1: 'assets/model-mask.webp?v=20261114e', D: 'assets/model-depth.webp?v=20261114e' };
+const SRC = { L0: 'assets/model-base.webp?v=20261114f', L1: 'assets/model-mask.webp?v=20261114f', D: 'assets/model-depth.webp?v=20261114f' };
 const IW = 750, IH = 1275;               // source image size (all layers share it)
-const FACE = [369 / IW, 470 / IH];       // idle drift centre (between face and chest)
+const FACE = [369 / IW, 213 / IH];       // face centre: the idle reveal drifts around it
 
 const VS = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
 const FS = `precision highp float;
@@ -32,7 +32,6 @@ void main(){
   float w=n(fc*.008+t*.35)*.6+n(fc*.02-t*.5)*.4;
   float b=texture2D(B,su+(vec2(n(fc*.01+t*.2),n(fc*.01-t*.2))-.5)*vec2(.035,-.035)).r;
   float v=max(b+(w-.5)*.35, lock*1.2-.5+(w-.5)*.3);
-  float keep=d.b;  // head area: the mask keeps its own colours (it only gets shinier under the blob)
   float r=smoothstep(.28,.34,v);
   // glossy highlight on the mask
   vec2 e=vec2(9./rect.z,9./rect.w);
@@ -40,16 +39,15 @@ void main(){
   vec3 N=normalize(vec3((dl-dr)*3.,(du-dd)*3.,1.));
   vec3 Ld=normalize(vec3(light,1.1)), H=normalize(Ld+vec3(0,0,1));
   float cv1=texture2D(D,uv+o1).g;
-  float spec=pow(max(dot(N,H),0.),mix(120.,50.,keep))*mix(.45,.7,keep)*cv1;
-  c1.rgb=c1.rgb*(1.+.25*keep*cv1)+vec3(spec)*c1.a;
+  c1.rgb+=vec3(pow(max(dot(N,H),0.),120.)*.45*cv1)*c1.a;
   vec4 col=mix(c0,c1,r);
   // lime rim light on the silhouette, on the side away from the light
   vec2 ro=normalize(vec2(-light.x,light.y)+vec2(.001))*vec2(4./rect.z,4./rect.w)*2.;
-  float rim=col.a*(1.-texture2D(L0,uv+o+ro).a)*(1.-keep);
+  float rim=col.a*(1.-texture2D(L0,uv+o+ro).a);
   col.rgb+=lime*rim*.55;
-  // thin line on the edge of the blob: lime over the body, white over the head
+  // thin lime line on the edge of the blob, only over the body
   float edge=(smoothstep(.22,.25,v)-smoothstep(.25,.28,v))*max(c0.a,c1.a)*(1.-lock);
-  col=mix(col,vec4(mix(lime,vec3(1.),keep),1.),edge*mix(.9,.7,keep));
+  col=mix(col,vec4(lime,1.),edge*.9);
   // fade out the bottom (the photo is cropped at the hips)
   col*=smoothstep(1.,.84,uv.y)*alpha;
   gl_FragColor=col;
@@ -224,10 +222,10 @@ export async function initModel({ canvas, anchor, hero, finePointer, mobile }) {
       ty = ((y - (rect[1] + rect[3] * 0.4)) / Math.max(rect[3], 1)) * 1.4;
       tx = Math.max(-1, Math.min(1, tx)); ty = Math.max(-1, Math.min(1, ty));
     } else {
-      // idle: drift over the mask and chest so people know to try
+      // idle: drift around the face so people know to try
       const fx = rect[0] + rect[2] * FACE[0], fy = rect[1] + rect[3] * FACE[1];
       x = fx + Math.cos(t * 0.9) * rect[2] * 0.16;
-      y = fy + Math.sin(t * 1.3) * rect[3] * 0.2;
+      y = fy + Math.sin(t * 1.3) * rect[3] * 0.08;
       tx = Math.cos(t * 0.5) * 0.35; ty = Math.sin(t * 0.7) * 0.25;
     }
     if (ptr.px < -9e4) { ptr.px = x; ptr.py = y; }
