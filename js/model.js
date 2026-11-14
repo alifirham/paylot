@@ -7,7 +7,7 @@
 // When nobody is touching, the blob drifts around the face on its own.
 
 const LIME = [184 / 255, 1, 46 / 255];
-const SRC = { L0: 'assets/model-base.webp?v=20261114b', L1: 'assets/model-mask.webp?v=20261114b', D: 'assets/model-depth.webp?v=20261114b' };
+const SRC = { L0: 'assets/model-base.webp?v=20261114c', L1: 'assets/model-mask.webp?v=20261114c', D: 'assets/model-depth.webp?v=20261114c' };
 const IW = 750, IH = 1275;               // source image size (all layers share it)
 const FACE = [369 / IW, 560 / IH];       // idle drift centre (chest: the shirt turns lime there)
 
@@ -32,7 +32,8 @@ void main(){
   float w=n(fc*.008+t*.35)*.6+n(fc*.02-t*.5)*.4;
   float b=texture2D(B,su+(vec2(n(fc*.01+t*.2),n(fc*.01-t*.2))-.5)*.035).a;
   float v=max(b+(w-.5)*.35, lock*1.2-.5+(w-.5)*.3);
-  float r=smoothstep(.28,.34,v);
+  float keep=d.b;  // head area: always the original look (no lime, no edge line)
+  float r=smoothstep(.28,.34,v)*(1.-keep);
   // glossy highlight on the mask
   vec2 e=vec2(9./rect.z,9./rect.w);
   float dl=texture2D(D,uv+o1-vec2(e.x,0)).r,dr=texture2D(D,uv+o1+vec2(e.x,0)).r,du=texture2D(D,uv+o1-vec2(0,e.y)).r,dd=texture2D(D,uv+o1+vec2(0,e.y)).r;
@@ -43,10 +44,10 @@ void main(){
   vec4 col=mix(c0,c1,r);
   // lime rim light on the silhouette, on the side away from the light
   vec2 ro=normalize(vec2(-light.x,light.y)+vec2(.001))*vec2(4./rect.z,4./rect.w)*2.;
-  float rim=col.a*(1.-texture2D(L0,uv+o+ro).a);
+  float rim=col.a*(1.-texture2D(L0,uv+o+ro).a)*(1.-keep);
   col.rgb+=lime*rim*.55;
   // thin lime line on the edge of the blob, only over the body
-  float edge=(smoothstep(.22,.25,v)-smoothstep(.25,.28,v))*max(c0.a,c1.a)*(1.-lock);
+  float edge=(smoothstep(.22,.25,v)-smoothstep(.25,.28,v))*max(c0.a,c1.a)*(1.-lock)*(1.-keep);
   col=mix(col,vec4(lime,1.),edge*.9);
   // fade out the bottom (the photo is cropped at the hips)
   col*=smoothstep(1.,.84,uv.y)*alpha;
